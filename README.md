@@ -143,6 +143,27 @@ that copy is your undo of last resort.
 If the file changed on disk since you opened it, the save is refused rather than
 overwriting someone else's work.
 
+## Why it stays responsive
+
+An edit re-derives only the slide it touched. `DeckEditor` reports which package
+parts a command changed, and a change confined to one slide's part and its
+relationships rebuilds that slide alone; only a change to the presentation, a
+layout or a master rebuilds the deck. On a 27-slide deck that is 1.7ms instead of
+61ms, and one slide re-rendering instead of all of them.
+
+Rendered slides are cached per index and only the edited one is dropped.
+Thumbnails render lazily as they scroll into view, and refresh individually.
+The ribbon, selection pane, floating toolbar and status bar all refresh together
+in one animation frame rather than each reacting to every event.
+
+```
+                      whole deck    one slide    render one slide
+21 slides, 702 shapes    30.0ms        0.58ms          4.5ms
+27 slides, 233 shapes    60.6ms        1.67ms          6.1ms
+```
+
+`npm run smoke -- --bench` prints these for any deck (set `PPTX_SMOKE_BENCH=1`).
+
 ## Development
 
 ```bash

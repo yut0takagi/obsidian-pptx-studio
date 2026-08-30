@@ -367,6 +367,7 @@ export class DeckViewer {
 		const index = Number(item.dataset.index);
 		const frame = item.querySelector<HTMLElement>(".pptx-thumb-frame");
 		if (!frame || frame.hasChildNodes()) return;
+		if (!frame.isConnected) return;
 		const slide = this.deck.slides[index];
 		if (!slide) return;
 
@@ -397,6 +398,16 @@ export class DeckViewer {
 		const el = this.slideElement(index);
 		this.canvasEl.empty();
 		if (el) this.canvasEl.appendChild(el);
+		// The slide element's own transform belongs to the zoom, so the entry
+		// animation moves the canvas around it rather than overwriting it.
+		this.canvasEl.removeClass("is-enter-forward");
+		this.canvasEl.removeClass("is-enter-back");
+		if (this.navigationDirection && el) {
+			const cls = this.navigationDirection === "forward" ? "is-enter-forward" : "is-enter-back";
+			// Reading offsetWidth restarts the animation when the class is re-added.
+			void this.canvasEl.offsetWidth;
+			this.canvasEl.addClass(cls);
+		}
 		this.options.shapeEditor?.setActive(el);
 		this.options.onRendered?.(el);
 
@@ -410,7 +421,7 @@ export class DeckViewer {
 				item.toggleClass("is-active", Number((item as HTMLElement).dataset.index) === index);
 			}
 			const active = this.railEl.querySelector<HTMLElement>(".pptx-thumb.is-active");
-			active?.scrollIntoView({ block: "nearest" });
+			active?.scrollIntoView({ block: "nearest", behavior: "smooth" });
 		}
 		if (this.notesEl) {
 			const notes = this.deck.slides[index]?.notes ?? "";
@@ -537,9 +548,15 @@ export class DeckViewer {
 		if (this.options.pinnedSlide !== undefined) return;
 		const clamped = Math.max(0, Math.min(this.lastIndex, index));
 		if (clamped === this.index && this.canvasEl.hasChildNodes()) return;
+		// Only navigation animates. An edit re-rendering the same slide must not
+		// replay the transition, or typing would strobe.
+		this.navigationDirection = clamped > this.index ? "forward" : "back";
 		this.index = clamped;
 		this.showSlide(clamped);
+		this.navigationDirection = null;
 	}
+
+	private navigationDirection: "forward" | "back" | null = null;
 
 	private onKeyDown = (event: KeyboardEvent): void => {
 		// A selected shape claims the arrow keys for nudging before paging sees them.
@@ -602,8 +619,56 @@ export class DeckViewer {
 	 * dropped because they hold registry entries pointing at the previous model.
 	 */
 	setDeck(deck: Deck): void {
+		const grew = deck.slides.length > this.deck.slides.length;
 		this.deck = deck;
+		this.rebuildRail();
+		// A slide that just appeared is worth pointing at; the rest of the rail
+		// redrawing is not, so only the new one animates.
+		if (grew) this.markNewThumbnail(this.index);
+		this.index = Math.max(0, Math.min(this.lastIndex, this.index));
 		this.invalidate();
+	}
+
+	/**
+	 * Refresh one slide after an edit that only touched it.
+	 *
+	 * The alternative — dropping every cached slide and re-rendering — is what
+	 * made a keystroke feel like a page load on a long deck.
+	 */
+	refreshSlide(index: number): void {
+		const cached = this.slideCache.get(index);
+		if (cached) {
+			this.options.editor?.detach(cached);
+			this.options.shapeEditor?.detach(cached);
+			this.slideCache.delete(index);
+		}
+		this.refreshThumbnail(index);
+		if (index === this.index) this.showSlide(index);
+	}
+
+	private markNewThumbnail(index: number): void {
+		const item = this.railEl?.children[index] as HTMLElement | undefined;
+		if (!item) return;
+		item.addClass("is-new");
+		window.setTimeout(() => item.removeClass("is-new"), 600);
+	}
+
+	/** Re-render one thumbnail, leaving the rest of the rail alone. */
+	private refreshThumbnail(index: number): void {
+		const item = this.railEl?.children[index] as HTMLElement | undefined;
+		const frame = item?.querySelector<HTMLElement>(".pptx-thumb-frame");
+		if (!frame) return;
+		frame.empty();
+		this.fillThumbnail(item as HTMLElement);
+	}
+
+	/** Rebuild the whole rail, for when slides were added, removed or reordered. */
+	private rebuildRail(): void {
+		if (!this.railEl) return;
+		this.thumbObserver?.disconnect();
+		this.thumbObserver = null;
+		this.railEl.empty();
+		this.buildRail();
 	}
 
 	/** Re-render from the current model, discarding cached slide elements. */

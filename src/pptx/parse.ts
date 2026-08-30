@@ -82,6 +82,31 @@ function documentTitle(pkg: PptxPackage): string {
 	return "";
 }
 
+/**
+ * Re-derive one slide in place.
+ *
+ * Most edits touch exactly one slide, and walking the other twenty-six to
+ * rebuild them is work nobody asked for — on a big deck it is the difference
+ * between an edit landing instantly and landing visibly late.
+ */
+export function rebuildSlideAt(pkg: PptxPackage, deck: Deck, index: number): boolean {
+	const slide = deck.slides[index];
+	if (!slide) return false;
+	const pres = pkg.xml(PRESENTATION)?.documentElement ?? null;
+	try {
+		deck.slides[index] = buildSlide(
+			pkg,
+			slide.partPath,
+			slide.index,
+			child(pres, "defaultTextStyle"),
+			new Map(),
+		);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 function buildSlide(
 	pkg: PptxPackage,
 	slidePath: string,

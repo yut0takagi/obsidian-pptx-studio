@@ -5,9 +5,10 @@ export interface DeckEditorOptions {
 	/**
 	 * Called after a successful edit. `rebuild` is true when the model has to be
 	 * re-derived — either the shape tree changed, or XML nodes were replaced and
-	 * the model's element references are stale.
+	 * the model's element references are stale. `parts` names what was touched,
+	 * so the listener can re-derive one slide rather than the deck.
 	 */
-	onChanged: (rebuild: boolean) => void;
+	onChanged: (rebuild: boolean, parts: string[]) => void;
 }
 
 /**
@@ -60,7 +61,7 @@ export class DeckEditor {
 		}
 
 		this.history.record({ label, before, after });
-		this.options.onChanged(options.rebuild ?? true);
+		this.options.onChanged(options.rebuild ?? true, unique);
 		return true;
 	}
 
@@ -76,7 +77,7 @@ export class DeckEditor {
 			if (after[path] !== null) this.pkg.markDirty(path);
 		}
 		this.history.record({ label, before, after });
-		this.options.onChanged(rebuild);
+		this.options.onChanged(rebuild, Object.keys(before));
 	}
 
 	/** Capture the current bytes of parts, for use with recordApplied. */
@@ -87,14 +88,16 @@ export class DeckEditor {
 	}
 
 	undo(): boolean {
-		if (!this.history.undo(this.pkg)) return false;
-		this.options.onChanged(true);
+		const entry = this.history.undo(this.pkg);
+		if (!entry) return false;
+		this.options.onChanged(true, Object.keys(entry.before));
 		return true;
 	}
 
 	redo(): boolean {
-		if (!this.history.redo(this.pkg)) return false;
-		this.options.onChanged(true);
+		const entry = this.history.redo(this.pkg);
+		if (!entry) return false;
+		this.options.onChanged(true, Object.keys(entry.after));
 		return true;
 	}
 

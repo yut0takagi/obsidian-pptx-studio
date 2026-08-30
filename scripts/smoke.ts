@@ -61,7 +61,7 @@ import {
 } from "../src/edit/slideCommands";
 import { encodePng } from "./png.mjs";
 import { writeFrame, writeShapeFrame } from "../src/edit/geometryWrite";
-import { parseDeck, rebuildDeck } from "../src/pptx/parse";
+import { parseDeck, rebuildDeck, rebuildSlideAt } from "../src/pptx/parse";
 import type { PptxPackage } from "../src/pptx/package";
 import { renderSlide } from "../src/render/renderSlide";
 import { shapeRegistry, textBodyRegistry } from "../src/render/renderSlide";
@@ -922,6 +922,33 @@ if (dumpPath) {
 		console.log(`Wrote slide ${index + 1} to ${dumpPath}`);
 	}
 	pkg.dispose();
+	process.exit(0);
+}
+
+// PPTX_SMOKE_BENCH times the two refresh paths an edit can take.
+if (process.env.PPTX_SMOKE_BENCH) {
+	for (const file of files) {
+		const { deck, pkg } = parseDeck(readFileSync(file), basename(file));
+		const shapes = deck.slides.reduce((n, s) => n + s.shapes.length, 0);
+
+		const time = (runs: number, fn: () => void): number => {
+			fn();
+			const started = performance.now();
+			for (let i = 0; i < runs; i++) fn();
+			return (performance.now() - started) / runs;
+		};
+
+		const whole = time(20, () => rebuildDeck(pkg, "bench"));
+		const one = time(20, () => rebuildSlideAt(pkg, deck, 0));
+		const render = time(10, () => renderSlide(deck, deck.slides[0]));
+
+		console.log(
+			`${basename(file)}: ${deck.slides.length} slides, ${shapes} shapes — ` +
+				`whole deck ${whole.toFixed(1)}ms, one slide ${one.toFixed(2)}ms, ` +
+				`render ${render.toFixed(1)}ms`,
+		);
+		pkg.dispose();
+	}
 	process.exit(0);
 }
 

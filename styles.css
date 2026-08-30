@@ -873,3 +873,103 @@
 	text-overflow: ellipsis;
 	max-width: 40%;
 }
+
+/* ---------------------------------------------------------------- motion */
+
+/*
+ * Motion is only used to explain a change: which way the deck moved, that a
+ * slide was added, that a toolbar belongs to the thing under it. Anything that
+ * fires while typing or dragging is deliberately left alone.
+ */
+.pptx-canvas.is-enter-forward {
+	animation: pptx-slide-in-forward 140ms ease-out;
+}
+
+.pptx-canvas.is-enter-back {
+	animation: pptx-slide-in-back 140ms ease-out;
+}
+
+@keyframes pptx-slide-in-forward {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+}
+
+@keyframes pptx-slide-in-back {
+	from {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+}
+
+.pptx-thumb.is-new .pptx-thumb-frame {
+	animation: pptx-thumb-in 420ms ease-out;
+}
+
+@keyframes pptx-thumb-in {
+	from {
+		opacity: 0;
+		transform: scale(0.9);
+	}
+	60% {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 1px;
+	}
+}
+
+.pptx-thumb {
+	transition: background 120ms ease-out;
+}
+
+.pptx-context-toolbar {
+	transition:
+		opacity 110ms ease-out,
+		transform 110ms ease-out;
+}
+
+.pptx-context-toolbar.is-hidden {
+	opacity: 0;
+	transform: translateY(4px);
+	pointer-events: none;
+}
+
+.pptx-ribbon-body {
+	transition: max-height 140ms ease-out;
+	max-height: 120px;
+	overflow: hidden;
+}
+
+.pptx-ribbon.is-collapsed .pptx-ribbon-body {
+	display: flex;
+	max-height: 0;
+	padding-top: 0;
+	padding-bottom: 0;
+	border: none;
+}
+
+.pptx-ribbon-btn,
+.pptx-ctx-btn,
+.pptx-ribbon-tab {
+	transition:
+		background 100ms ease-out,
+		color 100ms ease-out;
+}
+
+/* Someone who has asked for less motion gets none of it. */
+@media (prefers-reduced-motion: reduce) {
+	.pptx-canvas.is-enter-forward,
+	.pptx-canvas.is-enter-back,
+	.pptx-thumb.is-new .pptx-thumb-frame {
+		animation: none;
+	}
+
+	.pptx-context-toolbar,
+	.pptx-ribbon-body,
+	.pptx-thumb,
+	.pptx-ribbon-btn,
+	.pptx-ctx-btn,
+	.pptx-ribbon-tab {
+		transition: none;
+	}
+}

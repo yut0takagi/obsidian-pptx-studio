@@ -1,5 +1,7 @@
 import { FileView, Menu, Notice, type TFile, type WorkspaceLeaf } from "obsidian";
 import type { LoadedDeck } from "../DeckCache";
+import { relsPathFor } from "../ooxml/rels";
+import type { Deck } from "../pptx/types";
 import { DeckEditor } from "../edit/DeckEditor";
 import { EditController } from "../edit/EditController";
 import { Selection } from "../edit/Selection";
@@ -32,7 +34,7 @@ import {
 	newSlide,
 	reorderSlide,
 } from "../edit/slideCommands";
-import { rebuildDeck } from "../pptx/parse";
+import { rebuildDeck, rebuildSlideAt } from "../pptx/parse";
 import { DeckViewer } from "../render/DeckViewer";
 import { ContextToolbar } from "../ui/ContextToolbar";
 import { Ribbon } from "../ui/Ribbon";
@@ -50,6 +52,29 @@ import type PptxViewerPlugin from "../main";
 
 export const VIEW_TYPE_PPTX = "pptx-viewer";
 
+/** Parts that say nothing about the model's structure, whatever else changed. */
+const NEUTRAL = ["ppt/media/", "[Content_Types].xml", "ppt/viewProps.xml"];
+
+/**
+ * The index of the one slide an edit touched, or null when it reached wider.
+ *
+ * A slide's own part and its relationships belong to it alone; the
+ * presentation, the layouts and the masters belong to everything.
+ */
+function singleSlideScope(deck: Deck, parts: string[]): number | null {
+	let found: number | null = null;
+	for (const part of parts) {
+		if (NEUTRAL.some((prefix) => part.startsWith(prefix))) continue;
+		const index = deck.slides.findIndex(
+			(slide) => part === slide.partPath || part === relsPathFor(slide.partPath),
+		);
+		if (index === -1) return null;
+		if (found !== null && found !== index) return null;
+		found = index;
+	}
+	return found;
+}
+
 /** The full-tab deck editor: ribbon, slide canvas, selection, save. */
 export class PptxView extends FileView {
 	private viewer: DeckViewer | null = null;
@@ -62,6 +87,7 @@ export class PptxView extends FileView {
 	private showSelectionPane = false;
 	private selectionPane: SelectionPane | null = null;
 	private contextToolbar: ContextToolbar | null = null;
+	private uiFrame = 0;
 	private deckEditor: DeckEditor | null = null;
 	private readonly selection = new Selection();
 	private readonly tableSelection = new TableSelection();
@@ -78,14 +104,11 @@ export class PptxView extends FileView {
 		super(leaf);
 		this.selection.onChange(() => {
 			this.tableSelection.retain(this.selection.ids);
-			this.ribbon?.update();
-			this.selectionPane?.refresh();
-			this.updateStatus();
-			this.contextToolbar?.refresh();
+			this.scheduleUi();
 		});
 		this.tableSelection.onChange(() => {
 			this.tableSelection.paint(this.activeSlideEl);
-			this.ribbon?.update();
+			this.scheduleUi();
 		});
 	}
 
@@ -142,7 +165,7 @@ export class PptxView extends FileView {
 		if (!loaded) return;
 
 		this.deckEditor = new DeckEditor(loaded.pkg, {
-			onChanged: (rebuild) => this.afterEdit(rebuild),
+			onChanged: (rebuild, parts) => this.afterEdit(rebuild, parts),
 		});
 
 		this.editController = new EditController({
@@ -172,10 +195,7 @@ export class PptxView extends FileView {
 		this.crop = new CropController({
 			getContext: () => this.context(),
 			getScale: () => this.viewer?.currentScale() ?? 1,
-			onChanged: () => {
-				this.ribbon?.update();
-				this.contextToolbar?.refresh();
-			},
+			onChanged: () => this.scheduleUi(),
 		});
 
 		this.shapeEditor = new ShapeEditor({
@@ -228,7 +248,7 @@ export class PptxView extends FileView {
 		this.createViewer(1);
 		this.contentEl.addEventListener("keydown", this.onKeyDown, { capture: true });
 		this.viewer?.focus();
-		this.ribbon.update();
+		this.scheduleUi();
 	}
 
 	private createViewer(slideNumber: number): void {
@@ -281,12 +301,18 @@ export class PptxView extends FileView {
 	}
 
 	/** Rebuild the model and repaint after an edit. */
-	private afterEdit(rebuild: boolean): void {
+	private afterEdit(rebuild: boolean, parts: string[] = []): void {
 		const loaded = this.loaded;
 		if (!loaded) return;
 		if (rebuild) {
-			loaded.deck = rebuildDeck(loaded.pkg, this.file?.basename ?? "Deck");
-			this.viewer?.setDeck(loaded.deck);
+			// Re-derive only the slide that changed when that is all that changed.
+			const only = singleSlideScope(loaded.deck, parts);
+			if (only !== null && rebuildSlideAt(loaded.pkg, loaded.deck, only)) {
+				this.viewer?.refreshSlide(only);
+			} else {
+				loaded.deck = rebuildDeck(loaded.pkg, this.file?.basename ?? "Deck");
+				this.viewer?.setDeck(loaded.deck);
+			}
 			// Shapes can vanish from under a selection: deleted, ungrouped, undone.
 			const slide = loaded.deck.slides[this.selection.slideIndex];
 			const existing = new Set((slide?.shapes ?? []).filter((s) => s.source).map((s) => s.id));
@@ -297,10 +323,25 @@ export class PptxView extends FileView {
 			this.guides?.reload();
 		}
 		this.viewer?.setDirty(true);
-		this.ribbon?.update();
-		this.selectionPane?.refresh();
-		this.updateStatus();
-		this.contextToolbar?.refresh();
+		this.scheduleUi();
+	}
+
+	/**
+	 * Coalesce the chrome refresh into one frame.
+	 *
+	 * A single edit can otherwise ask the ribbon, the selection pane, the
+	 * floating toolbar and the status bar to re-evaluate several times over,
+	 * which is exactly the sort of work that turns a keystroke into a stutter.
+	 */
+	private scheduleUi(): void {
+		if (this.uiFrame) return;
+		this.uiFrame = window.requestAnimationFrame(() => {
+			this.uiFrame = 0;
+			this.ribbon?.update();
+			this.selectionPane?.refresh();
+			this.contextToolbar?.refresh();
+			this.updateStatus();
+		});
 	}
 
 	/** Open the text editor on a shape, for Enter and F2. */
@@ -397,7 +438,7 @@ export class PptxView extends FileView {
 		} catch (error) {
 			new Notice(t("notice.editFailed", { message: (error as Error).message }), 8000);
 		}
-		this.ribbon?.update();
+		this.scheduleUi();
 	}
 
 	/** Run a slide-level command and navigate to the slide it returns. */
@@ -412,7 +453,7 @@ export class PptxView extends FileView {
 			return;
 		}
 		if (target >= 0) this.viewer?.go(target);
-		this.ribbon?.update();
+		this.scheduleUi();
 	}
 
 	// ---------------------------------------------------------- ribbon host
@@ -428,7 +469,7 @@ export class PptxView extends FileView {
 			zoomToFit: () => this.viewer?.zoomToFit(),
 			toggleNotes: () => {
 				this.viewer?.showNotes(!this.viewer.notesShown);
-				this.ribbon?.update();
+				this.scheduleUi();
 			},
 			notesShown: () => this.viewer?.notesShown ?? false,
 			toggleThumbnails: () => {
@@ -460,7 +501,7 @@ export class PptxView extends FileView {
 			canRedo: () => this.deckEditor?.canRedo ?? false,
 			selectAll: () => {
 				this.shapeEditor?.selectAll();
-				this.ribbon?.update();
+				this.scheduleUi();
 			},
 			pickImage: () => this.pickImage(),
 			pickTable: () => this.pickTable(),
@@ -487,7 +528,7 @@ export class PptxView extends FileView {
 		this.selectionPane = null;
 		this.viewer?.destroy();
 		this.createViewer(current);
-		this.ribbon?.update();
+		this.scheduleUi();
 	}
 
 	// -------------------------------------------------------------- insert
@@ -643,7 +684,7 @@ export class PptxView extends FileView {
 			d: () => this.run(duplicateSelection),
 			a: () => {
 				this.shapeEditor?.selectAll();
-				this.ribbon?.update();
+				this.scheduleUi();
 			},
 		};
 		const handler = handlers[key];
@@ -679,7 +720,7 @@ export class PptxView extends FileView {
 			this.baseMtime = file.stat.mtime;
 			this.plugin.decks.touch(file.path, file.stat.mtime, file.stat.size);
 			this.viewer?.setDirty(false);
-			this.ribbon?.update();
+			this.scheduleUi();
 			new Notice(
 				result.backupPath
 					? t("notice.savedBackup", { path: result.backupPath })
@@ -709,6 +750,8 @@ export class PptxView extends FileView {
 	}
 
 	private teardown(): void {
+		if (this.uiFrame) window.cancelAnimationFrame(this.uiFrame);
+		this.uiFrame = 0;
 		this.contentEl.removeEventListener("keydown", this.onKeyDown, { capture: true });
 		this.selectionPane?.destroy();
 		this.selectionPane = null;

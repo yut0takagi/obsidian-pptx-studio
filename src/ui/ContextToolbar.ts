@@ -59,8 +59,7 @@ export class ContextToolbar {
 	private readonly root: HTMLElement;
 
 	constructor(private readonly options: ContextToolbarOptions) {
-		this.root = document.body.createDiv({ cls: "pptx-context-toolbar" });
-		this.root.style.display = "none";
+		this.root = document.body.createDiv({ cls: "pptx-context-toolbar is-hidden" });
 		// Pressing a button must not pull focus off the canvas.
 		this.root.addEventListener("mousedown", (event) => event.preventDefault());
 	}
@@ -69,7 +68,7 @@ export class ContextToolbar {
 		const ctx = this.options.getContext();
 		const shapes = ctx ? selectedShapes(ctx) : [];
 		if (!ctx || shapes.length === 0 || this.options.isEditing()) {
-			this.root.style.display = "none";
+			this.root.addClass("is-hidden");
 			return;
 		}
 		this.build(ctx, shapes.length);
@@ -78,7 +77,6 @@ export class ContextToolbar {
 
 	private build(ctx: CommandContext, count: number): void {
 		this.root.empty();
-		this.root.style.display = "flex";
 
 		const shapes = selectedShapes(ctx);
 		const hasText = textState(ctx) !== null;
@@ -293,17 +291,13 @@ export class ContextToolbar {
 		// The bar lives on document.body, so it has to check for itself whether the
 		// view it belongs to is still on screen — a background tab must not leave
 		// a toolbar floating over whatever the user switched to.
-		if (!slideEl?.isConnected || !viewport?.offsetParent) {
-			this.root.style.display = "none";
-			return;
-		}
-		if (!ctx) {
-			this.root.style.display = "none";
+		if (!slideEl?.isConnected || !viewport?.offsetParent || !ctx) {
+			this.root.addClass("is-hidden");
 			return;
 		}
 		const shapes = selectedShapes(ctx);
 		if (shapes.length === 0) {
-			this.root.style.display = "none";
+			this.root.addClass("is-hidden");
 			return;
 		}
 
@@ -333,7 +327,7 @@ export class ContextToolbar {
 
 		// A selection scrolled out of the stage should not leave the bar hanging.
 		const visible = below > view.top - 40 && above < view.bottom + 40;
-		this.root.style.display = visible ? "flex" : "none";
+		this.root.toggleClass("is-hidden", !visible);
 		this.root.style.left = `${Math.round(x)}px`;
 		this.root.style.top = `${Math.round(y)}px`;
 	}
