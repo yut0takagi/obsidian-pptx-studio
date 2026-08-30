@@ -1,4 +1,5 @@
 import { MarkdownRenderChild, type TFile } from "obsidian";
+import { t } from "../i18n";
 import { DeckViewer } from "../render/DeckViewer";
 import type PptxViewerPlugin from "../main";
 
@@ -57,7 +58,7 @@ class PptxEmbed extends MarkdownRenderChild {
 		this.containerEl.style.height = `${settings.embedMaxHeight}px`;
 		const loading = this.containerEl.createDiv({
 			cls: "pptx-message",
-			text: `Loading ${this.file.name}…`,
+			text: t("embed.loading", { name: this.file.name }),
 		});
 
 		try {
@@ -83,7 +84,7 @@ class PptxEmbed extends MarkdownRenderChild {
 			loading.remove();
 			this.containerEl.createDiv({
 				cls: "pptx-message pptx-error",
-				text: `Could not render ${this.file.name}: ${(error as Error).message}`,
+				text: t("embed.failed", { name: this.file.name, message: (error as Error).message }),
 			});
 		}
 	}

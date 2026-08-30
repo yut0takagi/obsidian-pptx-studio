@@ -1,4 +1,5 @@
 import { App, FuzzySuggestModal, Modal, Setting, SuggestModal, type TFile } from "obsidian";
+import { t } from "../i18n";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"]);
 
@@ -9,7 +10,7 @@ export class ImagePickerModal extends FuzzySuggestModal<TFile> {
 		private readonly onPick: (file: TFile) => void,
 	) {
 		super(app);
-		this.setPlaceholder("Pick an image to insert");
+		this.setPlaceholder(t("modal.pickImage"));
 	}
 
 	getItems(): TFile[] {
@@ -36,7 +37,7 @@ export class LayoutPickerModal extends SuggestModal<{ path: string; name: string
 		private readonly onPick: (layout: { path: string; name: string }) => void,
 	) {
 		super(app);
-		this.setPlaceholder("Pick a layout for the new slide");
+		this.setPlaceholder(t("modal.pickLayout"));
 	}
 
 	getSuggestions(query: string): { path: string; name: string }[] {
@@ -67,10 +68,10 @@ export class TableSizeModal extends Modal {
 	}
 
 	onOpen(): void {
-		this.titleEl.setText("Insert table");
+		this.titleEl.setText(t("modal.tableTitle"));
 		const { contentEl } = this;
 
-		new Setting(contentEl).setName("Rows").addSlider((slider) =>
+		new Setting(contentEl).setName(t("modal.rows")).addSlider((slider) =>
 			slider
 				.setLimits(1, 12, 1)
 				.setValue(this.rows)
@@ -79,7 +80,7 @@ export class TableSizeModal extends Modal {
 					this.rows = value;
 				}),
 		);
-		new Setting(contentEl).setName("Columns").addSlider((slider) =>
+		new Setting(contentEl).setName(t("modal.columns")).addSlider((slider) =>
 			slider
 				.setLimits(1, 10, 1)
 				.setValue(this.columns)
@@ -91,7 +92,7 @@ export class TableSizeModal extends Modal {
 
 		new Setting(contentEl).addButton((button) =>
 			button
-				.setButtonText("Insert")
+				.setButtonText(t("modal.insert"))
 				.setCta()
 				.onClick(() => {
 					this.close();
@@ -136,7 +137,7 @@ export class PromptModal extends Modal {
 		window.setTimeout(() => input?.focus(), 0);
 
 		new Setting(this.contentEl).addButton((button) =>
-			button.setButtonText("OK").setCta().onClick(() => this.submit()),
+			button.setButtonText(t("common.ok")).setCta().onClick(() => this.submit()),
 		);
 	}
 

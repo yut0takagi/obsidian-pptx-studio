@@ -1,4 +1,5 @@
 import type { App, TFile } from "obsidian";
+import { t } from "../i18n";
 import type { PptxPackage } from "../pptx/package";
 
 export interface SaveResult {
@@ -9,7 +10,7 @@ export interface SaveResult {
 
 export class ConflictError extends Error {
 	constructor() {
-		super("The file changed on disk since it was opened. Reload it before saving.");
+		super(t("notice.conflict"));
 		this.name = "ConflictError";
 	}
 }

@@ -1,0 +1,537 @@
+/**
+ * Interface strings.
+ *
+ * The plugin follows Obsidian's own display language rather than shipping a
+ * single locale, so a Japanese vault gets a Japanese ribbon without the user
+ * configuring anything, and the plugin stays distributable to everyone else.
+ */
+export type Language = "en" | "ja";
+export type LanguageSetting = Language | "auto";
+
+const EN = {
+	// --- generic
+	"common.ok": "OK",
+	"common.none": "None",
+	"common.custom": "Custom",
+	"common.cancel": "Cancel",
+
+	// --- view chrome
+	"view.title": "Presentation",
+	"view.loading": "Reading deck…",
+	"view.openFailed": "This deck could not be opened",
+	"view.openExternally": "Open in the default app",
+	"view.noNotes": "This slide has no speaker notes.",
+	"view.notesTitle": "Speaker notes",
+	"view.slideLabel": "Slide {n}",
+
+	"nav.previous": "Previous slide (←)",
+	"nav.next": "Next slide (→)",
+	"zoom.out": "Zoom out (−)",
+	"zoom.in": "Zoom in (+)",
+	"zoom.fit": "Fit to pane (0)",
+	"notes.toggle": "Toggle speaker notes (N)",
+
+	// --- ribbon tabs and groups
+	"tab.home": "Home",
+	"tab.insert": "Insert",
+	"tab.format": "Format",
+	"tab.design": "Design",
+	"tab.view": "View",
+	"tab.table": "Table",
+
+	"group.undo": "Undo",
+	"group.clipboard": "Clipboard",
+	"group.slides": "Slides",
+	"group.font": "Font",
+	"group.paragraph": "Paragraph",
+	"group.drawing": "Drawing",
+	"group.editing": "Editing",
+	"group.objects": "Objects",
+	"group.shapeStyles": "Shape styles",
+	"group.shape": "Shape",
+	"group.arrange": "Arrange",
+	"group.rotate": "Rotate",
+	"group.positionSize": "Position and size",
+	"group.background": "Slide background",
+	"group.rowsColumns": "Rows and columns",
+	"group.cells": "Cells",
+	"group.zoom": "Zoom",
+	"group.show": "Show",
+	"group.export": "Export",
+
+	// --- commands
+	"cmd.undo": "Undo (Cmd/Ctrl+Z)",
+	"cmd.redo": "Redo (Cmd/Ctrl+Shift+Z)",
+	"cmd.save": "Save (Cmd/Ctrl+S)",
+	"cmd.paste": "Paste (Cmd/Ctrl+V)",
+	"cmd.cut": "Cut (Cmd/Ctrl+X)",
+	"cmd.copy": "Copy (Cmd/Ctrl+C)",
+	"cmd.duplicate": "Duplicate (Cmd/Ctrl+D)",
+	"cmd.selectAll": "Select all (Cmd/Ctrl+A)",
+	"cmd.delete": "Delete (Del)",
+
+	"cmd.newSlide": "New slide",
+	"cmd.newSlideShort": "New",
+	"cmd.newSlideFromLayout": "New slide from a layout",
+	"cmd.duplicateSlide": "Duplicate slide",
+	"cmd.deleteSlide": "Delete slide",
+	"cmd.moveSlideUp": "Move slide up",
+	"cmd.moveSlideDown": "Move slide down",
+
+	"cmd.font": "Font",
+	"cmd.fontSize": "Font size",
+	"cmd.bold": "Bold",
+	"cmd.italic": "Italic",
+	"cmd.underline": "Underline",
+	"cmd.strike": "Strikethrough",
+	"cmd.textColour": "Text colour",
+	"cmd.hyperlink": "Add or edit a hyperlink",
+
+	"cmd.bulletList": "Bulleted list",
+	"cmd.numberedList": "Numbered list",
+	"cmd.outdent": "Decrease list level",
+	"cmd.indent": "Increase list level",
+	"cmd.alignLeft": "Align left",
+	"cmd.alignCentre": "Centre",
+	"cmd.alignRight": "Align right",
+	"cmd.justify": "Justify",
+	"cmd.spacingMenu": "Line spacing and vertical alignment",
+	"cmd.lineSpacing": "Line spacing {value}",
+	"cmd.anchorTop": "Align text top",
+	"cmd.anchorMiddle": "Align text middle",
+	"cmd.anchorBottom": "Align text bottom",
+
+	"cmd.shapes": "Shapes",
+	"cmd.insertShape": "Insert a shape",
+	"cmd.line": "Line",
+	"cmd.shapeFill": "Shape fill",
+	"cmd.shapeOutline": "Shape outline",
+	"cmd.outlineStyle": "Outline weight and style",
+	"cmd.outlineWeight": "{value} pt",
+	"cmd.dashSolid": "Solid",
+	"cmd.dashDashed": "Dashed",
+	"cmd.dashDotted": "Dotted",
+
+	"cmd.arrange": "Arrange",
+	"cmd.arrangeTooltip": "Bring forward, send backward",
+	"cmd.bringToFront": "Bring to front",
+	"cmd.bringForward": "Bring forward",
+	"cmd.sendBackward": "Send backward",
+	"cmd.sendToBack": "Send to back",
+	"cmd.align": "Align",
+	"cmd.alignTooltip": "Align and distribute",
+	"cmd.alignTop": "Align top",
+	"cmd.alignMiddle": "Align middle",
+	"cmd.alignBottom": "Align bottom",
+	"cmd.distributeH": "Distribute horizontally",
+	"cmd.distributeV": "Distribute vertically",
+	"cmd.group": "Group",
+	"cmd.ungroup": "Ungroup",
+
+	"cmd.textBox": "Text box",
+	"cmd.insertTextBox": "Insert a text box",
+	"cmd.picture": "Picture",
+	"cmd.insertPicture": "Insert a picture from the vault",
+	"cmd.table": "Table",
+	"cmd.insertTable": "Insert a table",
+
+	"cmd.changeShape": "Change",
+	"cmd.changeShapeTooltip": "Change the selected shape",
+	"cmd.copyFormat": "Copy formatting",
+	"cmd.pasteFormat": "Paste formatting",
+	"cmd.rotateRight": "Rotate 90° right",
+	"cmd.rotateLeft": "Rotate 90° left",
+	"cmd.flipH": "Flip horizontally",
+	"cmd.flipV": "Flip vertically",
+	"cmd.posX": "Distance from the left edge, in pixels",
+	"cmd.posY": "Distance from the top edge, in pixels",
+	"cmd.sizeW": "Width in pixels",
+	"cmd.sizeH": "Height in pixels",
+	"cmd.rotation": "Rotation in degrees",
+	"cmd.slideBackground": "Slide background colour",
+
+	"cmd.rowAbove": "Above",
+	"cmd.rowAboveTooltip": "Insert a row above",
+	"cmd.rowBelow": "Below",
+	"cmd.rowBelowTooltip": "Insert a row below",
+	"cmd.columnLeft": "Left",
+	"cmd.columnLeftTooltip": "Insert a column to the left",
+	"cmd.columnRight": "Right",
+	"cmd.columnRightTooltip": "Insert a column to the right",
+	"cmd.deleteRows": "Delete the selected rows",
+	"cmd.deleteColumns": "Delete the selected columns",
+	"cmd.merge": "Merge",
+	"cmd.mergeTooltip": "Merge the selected cells",
+	"cmd.split": "Split",
+	"cmd.splitTooltip": "Split merged cells",
+	"cmd.cellFill": "Cell fill",
+
+	"cmd.notes": "Notes",
+	"cmd.notesTooltip": "Toggle speaker notes",
+	"cmd.thumbnails": "Thumbnails",
+	"cmd.thumbnailsTooltip": "Toggle the thumbnail rail",
+	"cmd.exportPng": "PNG",
+	"cmd.exportPngTooltip": "Export this slide as a PNG",
+	"cmd.exportMarkdown": "Markdown",
+	"cmd.exportMarkdownTooltip": "Extract the deck's text to a note",
+
+	// --- modals
+	"modal.pickImage": "Pick an image to insert",
+	"modal.pickLayout": "Pick a layout for the new slide",
+	"modal.tableTitle": "Insert table",
+	"modal.rows": "Rows",
+	"modal.columns": "Columns",
+	"modal.insert": "Insert",
+	"modal.hyperlink": "Hyperlink",
+
+	// --- notices
+	"notice.noChanges": "No changes to save.",
+	"notice.saved": "Saved.",
+	"notice.savedBackup": "Saved. A backup of the original is at {path}.",
+	"notice.saveFailed": "Could not save: {message}",
+	"notice.editFailed": "That edit failed: {message}",
+	"notice.noLayouts": "This deck has no slide layouts to choose from.",
+	"notice.imageFailed": "Could not insert the image: {message}",
+	"notice.exported": "Exported {path}",
+	"notice.exportFailed": "Could not export the slide: {message}",
+	"notice.noteFailed": "Could not create the note: {message}",
+	"notice.readFailed": "Could not read the deck: {message}",
+	"notice.noExternalApp": "This build of Obsidian cannot open files in an external app.",
+	"notice.extensionTaken":
+		"PPTX Viewer: another plugin already handles .pptx files. Disable it to use this one.",
+	"notice.conflict": "The file changed on disk since it was opened. Reload it before saving.",
+
+	// --- embeds and rendering
+	"embed.loading": "Loading {name}…",
+	"embed.failed": "Could not render {name}: {message}",
+	"render.unsupportedImage": "Unsupported image format",
+
+	// --- plugin commands
+	"palette.save": "Save deck",
+	"palette.exportPng": "Export current slide as PNG",
+	"palette.extract": "Extract deck text to a Markdown note",
+	"palette.openExternally": "Open deck in the default app",
+
+	// --- settings
+	"settings.viewer": "Viewer",
+	"settings.thumbnails": "Slide thumbnails",
+	"settings.thumbnailsDesc": "Show a thumbnail rail beside the slide.",
+	"settings.notes": "Speaker notes",
+	"settings.notesDesc": "Show the notes pane when a deck opens. Toggle it any time with N.",
+	"settings.zoom": "Default zoom",
+	"settings.zoomDesc": "How a slide is sized when the view opens.",
+	"settings.zoomPage": "Fit whole slide",
+	"settings.zoomWidth": "Fit width",
+	"settings.language": "Language",
+	"settings.languageDesc": "Interface language. Automatic follows Obsidian's own setting.",
+	"settings.languageAuto": "Automatic",
+	"settings.embeds": "Embeds in notes",
+	"settings.embedHeight": "Embed height",
+	"settings.embedHeightDesc": "Height in pixels of a deck embedded in a note.",
+	"settings.embedControls": "Embed controls",
+	"settings.embedControlsDesc":
+		"Show page controls on embeds that are not pinned to one slide.",
+	"settings.export": "Export",
+	"settings.pngResolution": "PNG resolution",
+	"settings.pngResolutionDesc": "Pixel density of exported slide images.",
+	"settings.exportFolder": "Export folder",
+	"settings.exportFolderDesc":
+		"Where exported PNGs go. Leave empty to use the vault's attachment folder.",
+	"settings.includeNotes": "Include speaker notes",
+	"settings.includeNotesDesc": "Add notes as callouts when extracting a deck to Markdown.",
+	"settings.linkBack": "Link back to the deck",
+	"settings.linkBackDesc": "Add a link to the source .pptx at the top of extracted Markdown.",
+	"settings.editing": "Editing",
+	"settings.editingDesc":
+		"Double-click slide text to edit it, then save with Cmd/Ctrl+S. The first save of a deck " +
+		"leaves a .pptx.bak copy of the original beside it. Everything this plugin does not " +
+		"understand — animations, transitions, embedded fonts — is written back unchanged.",
+
+	// --- shapes
+	"shape.rect": "Rectangle",
+	"shape.roundRect": "Rounded rectangle",
+	"shape.ellipse": "Ellipse",
+	"shape.triangle": "Triangle",
+	"shape.diamond": "Diamond",
+	"shape.pentagon": "Pentagon",
+	"shape.hexagon": "Hexagon",
+	"shape.star5": "Star",
+	"shape.rightArrow": "Arrow",
+	"shape.chevron": "Chevron",
+	"shape.flowChartDecision": "Decision",
+	"shape.wedgeRectCallout": "Callout",
+};
+
+export type StringKey = keyof typeof EN;
+
+const JA: Record<StringKey, string> = {
+	"common.ok": "OK",
+	"common.none": "なし",
+	"common.custom": "カスタム",
+	"common.cancel": "キャンセル",
+
+	"view.title": "プレゼンテーション",
+	"view.loading": "読み込み中…",
+	"view.openFailed": "このファイルを開けませんでした",
+	"view.openExternally": "既定のアプリで開く",
+	"view.noNotes": "このスライドにノートはありません。",
+	"view.notesTitle": "ノート",
+	"view.slideLabel": "スライド {n}",
+
+	"nav.previous": "前のスライド (←)",
+	"nav.next": "次のスライド (→)",
+	"zoom.out": "縮小 (−)",
+	"zoom.in": "拡大 (+)",
+	"zoom.fit": "ウィンドウに合わせる (0)",
+	"notes.toggle": "ノートの表示切替 (N)",
+
+	"tab.home": "ホーム",
+	"tab.insert": "挿入",
+	"tab.format": "書式",
+	"tab.design": "デザイン",
+	"tab.view": "表示",
+	"tab.table": "表",
+
+	"group.undo": "元に戻す",
+	"group.clipboard": "クリップボード",
+	"group.slides": "スライド",
+	"group.font": "フォント",
+	"group.paragraph": "段落",
+	"group.drawing": "図形",
+	"group.editing": "編集",
+	"group.objects": "オブジェクト",
+	"group.shapeStyles": "図形のスタイル",
+	"group.shape": "図形",
+	"group.arrange": "配置",
+	"group.rotate": "回転",
+	"group.positionSize": "位置とサイズ",
+	"group.background": "背景",
+	"group.rowsColumns": "行と列",
+	"group.cells": "セル",
+	"group.zoom": "ズーム",
+	"group.show": "表示",
+	"group.export": "書き出し",
+
+	"cmd.undo": "元に戻す (Cmd/Ctrl+Z)",
+	"cmd.redo": "やり直し (Cmd/Ctrl+Shift+Z)",
+	"cmd.save": "保存 (Cmd/Ctrl+S)",
+	"cmd.paste": "貼り付け (Cmd/Ctrl+V)",
+	"cmd.cut": "切り取り (Cmd/Ctrl+X)",
+	"cmd.copy": "コピー (Cmd/Ctrl+C)",
+	"cmd.duplicate": "複製 (Cmd/Ctrl+D)",
+	"cmd.selectAll": "すべて選択 (Cmd/Ctrl+A)",
+	"cmd.delete": "削除 (Del)",
+
+	"cmd.newSlide": "新しいスライド",
+	"cmd.newSlideShort": "新規",
+	"cmd.newSlideFromLayout": "レイアウトを選んで追加",
+	"cmd.duplicateSlide": "スライドを複製",
+	"cmd.deleteSlide": "スライドを削除",
+	"cmd.moveSlideUp": "スライドを前へ",
+	"cmd.moveSlideDown": "スライドを後へ",
+
+	"cmd.font": "フォント",
+	"cmd.fontSize": "サイズ",
+	"cmd.bold": "太字",
+	"cmd.italic": "斜体",
+	"cmd.underline": "下線",
+	"cmd.strike": "取り消し線",
+	"cmd.textColour": "文字色",
+	"cmd.hyperlink": "リンクの挿入・編集",
+
+	"cmd.bulletList": "箇条書き",
+	"cmd.numberedList": "段落番号",
+	"cmd.outdent": "レベルを上げる",
+	"cmd.indent": "レベルを下げる",
+	"cmd.alignLeft": "左揃え",
+	"cmd.alignCentre": "中央揃え",
+	"cmd.alignRight": "右揃え",
+	"cmd.justify": "両端揃え",
+	"cmd.spacingMenu": "行間と垂直方向の配置",
+	"cmd.lineSpacing": "行間 {value}",
+	"cmd.anchorTop": "上揃え",
+	"cmd.anchorMiddle": "上下中央揃え",
+	"cmd.anchorBottom": "下揃え",
+
+	"cmd.shapes": "図形",
+	"cmd.insertShape": "図形を挿入",
+	"cmd.line": "直線",
+	"cmd.shapeFill": "塗りつぶし",
+	"cmd.shapeOutline": "枠線の色",
+	"cmd.outlineStyle": "枠線の太さと種類",
+	"cmd.outlineWeight": "{value} pt",
+	"cmd.dashSolid": "実線",
+	"cmd.dashDashed": "破線",
+	"cmd.dashDotted": "点線",
+
+	"cmd.arrange": "重なり",
+	"cmd.arrangeTooltip": "前面・背面へ移動",
+	"cmd.bringToFront": "最前面へ移動",
+	"cmd.bringForward": "前面へ移動",
+	"cmd.sendBackward": "背面へ移動",
+	"cmd.sendToBack": "最背面へ移動",
+	"cmd.align": "整列",
+	"cmd.alignTooltip": "整列と均等配置",
+	"cmd.alignTop": "上端で揃える",
+	"cmd.alignMiddle": "上下中央で揃える",
+	"cmd.alignBottom": "下端で揃える",
+	"cmd.distributeH": "左右に均等配置",
+	"cmd.distributeV": "上下に均等配置",
+	"cmd.group": "グループ化",
+	"cmd.ungroup": "グループ解除",
+
+	"cmd.textBox": "テキストボックス",
+	"cmd.insertTextBox": "テキストボックスを挿入",
+	"cmd.picture": "画像",
+	"cmd.insertPicture": "vault 内の画像を挿入",
+	"cmd.table": "表",
+	"cmd.insertTable": "表を挿入",
+
+	"cmd.changeShape": "図形の変更",
+	"cmd.changeShapeTooltip": "選択中の図形を別の図形に変える",
+	"cmd.copyFormat": "書式のコピー",
+	"cmd.pasteFormat": "書式の貼り付け",
+	"cmd.rotateRight": "右に90°回転",
+	"cmd.rotateLeft": "左に90°回転",
+	"cmd.flipH": "左右反転",
+	"cmd.flipV": "上下反転",
+	"cmd.posX": "左端からの距離 (px)",
+	"cmd.posY": "上端からの距離 (px)",
+	"cmd.sizeW": "幅 (px)",
+	"cmd.sizeH": "高さ (px)",
+	"cmd.rotation": "回転角度 (度)",
+	"cmd.slideBackground": "スライドの背景色",
+
+	"cmd.rowAbove": "上に行",
+	"cmd.rowAboveTooltip": "上に行を挿入",
+	"cmd.rowBelow": "下に行",
+	"cmd.rowBelowTooltip": "下に行を挿入",
+	"cmd.columnLeft": "左に列",
+	"cmd.columnLeftTooltip": "左に列を挿入",
+	"cmd.columnRight": "右に列",
+	"cmd.columnRightTooltip": "右に列を挿入",
+	"cmd.deleteRows": "選択した行を削除",
+	"cmd.deleteColumns": "選択した列を削除",
+	"cmd.merge": "結合",
+	"cmd.mergeTooltip": "選択したセルを結合",
+	"cmd.split": "分割",
+	"cmd.splitTooltip": "結合したセルを分割",
+	"cmd.cellFill": "セルの塗りつぶし",
+
+	"cmd.notes": "ノート",
+	"cmd.notesTooltip": "ノートの表示切替",
+	"cmd.thumbnails": "サムネイル",
+	"cmd.thumbnailsTooltip": "サムネイル一覧の表示切替",
+	"cmd.exportPng": "PNG",
+	"cmd.exportPngTooltip": "このスライドを PNG で書き出す",
+	"cmd.exportMarkdown": "Markdown",
+	"cmd.exportMarkdownTooltip": "デッキの文字をノートに抽出する",
+
+	"modal.pickImage": "挿入する画像を選択",
+	"modal.pickLayout": "新しいスライドのレイアウトを選択",
+	"modal.tableTitle": "表の挿入",
+	"modal.rows": "行数",
+	"modal.columns": "列数",
+	"modal.insert": "挿入",
+	"modal.hyperlink": "リンク",
+
+	"notice.noChanges": "保存する変更はありません。",
+	"notice.saved": "保存しました。",
+	"notice.savedBackup": "保存しました。元のファイルのバックアップは {path} です。",
+	"notice.saveFailed": "保存できませんでした: {message}",
+	"notice.editFailed": "編集に失敗しました: {message}",
+	"notice.noLayouts": "このデッキには選べるレイアウトがありません。",
+	"notice.imageFailed": "画像を挿入できませんでした: {message}",
+	"notice.exported": "{path} に書き出しました",
+	"notice.exportFailed": "スライドを書き出せませんでした: {message}",
+	"notice.noteFailed": "ノートを作成できませんでした: {message}",
+	"notice.readFailed": "デッキを読み込めませんでした: {message}",
+	"notice.noExternalApp": "この Obsidian では外部アプリでファイルを開けません。",
+	"notice.extensionTaken":
+		"PPTX Viewer: 他のプラグインが .pptx を処理しています。そちらを無効にしてください。",
+	"notice.conflict": "開いたあとにファイルが変更されています。再読み込みしてから保存してください。",
+
+	"embed.loading": "{name} を読み込み中…",
+	"embed.failed": "{name} を表示できませんでした: {message}",
+	"render.unsupportedImage": "未対応の画像形式です",
+
+	"palette.save": "デッキを保存",
+	"palette.exportPng": "現在のスライドを PNG で書き出す",
+	"palette.extract": "デッキの文字を Markdown ノートに抽出",
+	"palette.openExternally": "既定のアプリでデッキを開く",
+
+	"settings.viewer": "ビューア",
+	"settings.thumbnails": "サムネイル一覧",
+	"settings.thumbnailsDesc": "スライドの横にサムネイルの一覧を表示します。",
+	"settings.notes": "ノート",
+	"settings.notesDesc": "デッキを開いたときにノートペインを表示します。N でいつでも切り替えられます。",
+	"settings.zoom": "既定の表示倍率",
+	"settings.zoomDesc": "ビューを開いたときのスライドの大きさ。",
+	"settings.zoomPage": "スライド全体を表示",
+	"settings.zoomWidth": "幅に合わせる",
+	"settings.language": "言語",
+	"settings.languageDesc": "インターフェースの言語。「自動」は Obsidian の設定に従います。",
+	"settings.languageAuto": "自動",
+	"settings.embeds": "ノートへの埋め込み",
+	"settings.embedHeight": "埋め込みの高さ",
+	"settings.embedHeightDesc": "ノートに埋め込んだデッキの高さ (px)。",
+	"settings.embedControls": "埋め込みの操作ボタン",
+	"settings.embedControlsDesc": "特定のスライドに固定していない埋め込みにページ送りを表示します。",
+	"settings.export": "書き出し",
+	"settings.pngResolution": "PNG の解像度",
+	"settings.pngResolutionDesc": "書き出すスライド画像の画素密度。",
+	"settings.exportFolder": "書き出し先フォルダ",
+	"settings.exportFolderDesc":
+		"PNG の保存先。空欄なら vault の添付ファイルフォルダを使います。",
+	"settings.includeNotes": "ノートを含める",
+	"settings.includeNotesDesc": "Markdown 抽出時にノートをコールアウトとして追加します。",
+	"settings.linkBack": "元のデッキへのリンク",
+	"settings.linkBackDesc": "抽出した Markdown の先頭に元の .pptx へのリンクを入れます。",
+	"settings.editing": "編集",
+	"settings.editingDesc":
+		"テキストボックスをダブルクリックすると編集でき、Cmd/Ctrl+S で保存します。" +
+		"初回保存時に元のファイルの控えを .pptx.bak として残します。" +
+		"アニメーション・画面切り替え・埋め込みフォントなど、このプラグインが解釈しない情報はそのまま書き戻されます。",
+
+	"shape.rect": "四角形",
+	"shape.roundRect": "角丸四角形",
+	"shape.ellipse": "楕円",
+	"shape.triangle": "三角形",
+	"shape.diamond": "ひし形",
+	"shape.pentagon": "五角形",
+	"shape.hexagon": "六角形",
+	"shape.star5": "星",
+	"shape.rightArrow": "矢印",
+	"shape.chevron": "山形",
+	"shape.flowChartDecision": "判断",
+	"shape.wedgeRectCallout": "吹き出し",
+};
+
+const TABLES: Record<Language, Record<StringKey, string>> = { en: EN, ja: JA };
+
+let active: Language = "en";
+
+/** Resolve the setting to a concrete language, following Obsidian when asked. */
+export function resolveLanguage(setting: LanguageSetting): Language {
+	if (setting !== "auto") return setting;
+	// Obsidian records the display language here; anything unknown falls back.
+	const stored = window.localStorage.getItem("language") ?? "";
+	return stored.startsWith("ja") ? "ja" : "en";
+}
+
+export function setLanguage(setting: LanguageSetting): void {
+	active = resolveLanguage(setting);
+}
+
+export function currentLanguage(): Language {
+	return active;
+}
+
+/** Look up a string, substituting {name} placeholders. */
+export function t(key: StringKey, params?: Record<string, string | number>): string {
+	const text = TABLES[active][key] ?? EN[key] ?? key;
+	if (!params) return text;
+	return text.replace(/\{(\w+)\}/g, (match, name: string) =>
+		name in params ? String(params[name]) : match,
+	);
+}

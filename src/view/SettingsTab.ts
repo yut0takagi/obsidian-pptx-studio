@@ -1,4 +1,5 @@
 import { PluginSettingTab, Setting } from "obsidian";
+import { t } from "../i18n";
 import type PptxViewerPlugin from "../main";
 
 export class PptxSettingsTab extends PluginSettingTab {
@@ -10,11 +11,30 @@ export class PptxSettingsTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		new Setting(containerEl).setName("Viewer").setHeading();
+		new Setting(containerEl).setName(t("settings.viewer")).setHeading();
 
 		new Setting(containerEl)
-			.setName("Slide thumbnails")
-			.setDesc("Show a thumbnail rail beside the slide.")
+			.setName(t("settings.language"))
+			.setDesc(t("settings.languageDesc"))
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOption("auto", t("settings.languageAuto"))
+					.addOption("en", "English")
+					.addOption("ja", "日本語")
+					.setValue(this.plugin.settings.language)
+					.onChange(async (value) => {
+						this.plugin.settings.language =
+							value === "en" || value === "ja" ? value : "auto";
+						await this.plugin.saveSettings();
+						// Rebuild this pane and any open deck so the change is visible now.
+						this.display();
+						this.plugin.refreshViews();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t("settings.thumbnails"))
+			.setDesc(t("settings.thumbnailsDesc"))
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.showThumbnails).onChange(async (value) => {
 					this.plugin.settings.showThumbnails = value;
@@ -23,8 +43,8 @@ export class PptxSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Speaker notes")
-			.setDesc("Show the notes pane when a deck opens. Toggle it any time with N.")
+			.setName(t("settings.notes"))
+			.setDesc(t("settings.notesDesc"))
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.showNotes).onChange(async (value) => {
 					this.plugin.settings.showNotes = value;
@@ -33,12 +53,12 @@ export class PptxSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Default zoom")
-			.setDesc("How a slide is sized when the view opens.")
+			.setName(t("settings.zoom"))
+			.setDesc(t("settings.zoomDesc"))
 			.addDropdown((dropdown) =>
 				dropdown
-					.addOption("page", "Fit whole slide")
-					.addOption("width", "Fit width")
+					.addOption("page", t("settings.zoomPage"))
+					.addOption("width", t("settings.zoomWidth"))
 					.setValue(this.plugin.settings.fitMode)
 					.onChange(async (value) => {
 						this.plugin.settings.fitMode = value === "width" ? "width" : "page";
@@ -46,11 +66,11 @@ export class PptxSettingsTab extends PluginSettingTab {
 					}),
 			);
 
-		new Setting(containerEl).setName("Embeds in notes").setHeading();
+		new Setting(containerEl).setName(t("settings.embeds")).setHeading();
 
 		new Setting(containerEl)
-			.setName("Embed height")
-			.setDesc("Height in pixels of a deck embedded in a note.")
+			.setName(t("settings.embedHeight"))
+			.setDesc(t("settings.embedHeightDesc"))
 			.addSlider((slider) =>
 				slider
 					.setLimits(200, 900, 20)
@@ -63,8 +83,8 @@ export class PptxSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Embed controls")
-			.setDesc("Show page controls on embeds that are not pinned to one slide.")
+			.setName(t("settings.embedControls"))
+			.setDesc(t("settings.embedControlsDesc"))
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.embedControls).onChange(async (value) => {
 					this.plugin.settings.embedControls = value;
@@ -72,16 +92,16 @@ export class PptxSettingsTab extends PluginSettingTab {
 				}),
 			);
 
-		new Setting(containerEl).setName("Export").setHeading();
+		new Setting(containerEl).setName(t("settings.export")).setHeading();
 
 		new Setting(containerEl)
-			.setName("PNG resolution")
-			.setDesc("Pixel density of exported slide images.")
+			.setName(t("settings.pngResolution"))
+			.setDesc(t("settings.pngResolutionDesc"))
 			.addDropdown((dropdown) =>
 				dropdown
-					.addOption("1", "1× (screen)")
-					.addOption("2", "2× (retina)")
-					.addOption("3", "3× (print)")
+					.addOption("1", "1×")
+					.addOption("2", "2×")
+					.addOption("3", "3×")
 					.setValue(String(this.plugin.settings.exportScale))
 					.onChange(async (value) => {
 						this.plugin.settings.exportScale = Number(value) || 2;
@@ -90,8 +110,8 @@ export class PptxSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Export folder")
-			.setDesc("Where exported PNGs go. Leave empty to use the vault's attachment folder.")
+			.setName(t("settings.exportFolder"))
+			.setDesc(t("settings.exportFolderDesc"))
 			.addText((text) =>
 				text
 					.setPlaceholder("assets/slides")
@@ -103,8 +123,8 @@ export class PptxSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Include speaker notes")
-			.setDesc("Add notes as callouts when extracting a deck to Markdown.")
+			.setName(t("settings.includeNotes"))
+			.setDesc(t("settings.includeNotesDesc"))
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.includeNotes).onChange(async (value) => {
 					this.plugin.settings.includeNotes = value;
@@ -113,8 +133,8 @@ export class PptxSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Link back to the deck")
-			.setDesc("Add a link to the source .pptx at the top of extracted Markdown.")
+			.setName(t("settings.linkBack"))
+			.setDesc(t("settings.linkBackDesc"))
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.includeSourceLink).onChange(async (value) => {
 					this.plugin.settings.includeSourceLink = value;
@@ -122,12 +142,7 @@ export class PptxSettingsTab extends PluginSettingTab {
 				}),
 			);
 
-		new Setting(containerEl).setName("Editing").setHeading();
-		const info = containerEl.createDiv({ cls: "setting-item-description" });
-		info.setText(
-			"Double-click slide text to edit it, then save with Cmd/Ctrl+S. The first save of a deck " +
-				"leaves a .pptx.bak copy of the original beside it. Everything this plugin does not " +
-				"understand — animations, transitions, embedded fonts — is written back unchanged.",
-		);
+		new Setting(containerEl).setName(t("settings.editing")).setHeading();
+		containerEl.createDiv({ cls: "setting-item-description", text: t("settings.editingDesc") });
 	}
 }

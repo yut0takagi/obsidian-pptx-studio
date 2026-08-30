@@ -1,4 +1,5 @@
 import { geometryCss } from "../pptx/geometry";
+import { t } from "../i18n";
 import type {
 	ChartShape,
 	Deck,
@@ -328,7 +329,7 @@ function renderImage(shape: ImageShape): HTMLElement {
 			padding: "4px",
 			textAlign: "center",
 		});
-		el.setText(shape.label || "Unsupported image format");
+		el.setText(shape.label || t("render.unsupportedImage"));
 		return el;
 	}
 

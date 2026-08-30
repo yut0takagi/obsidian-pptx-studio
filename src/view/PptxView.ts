@@ -39,6 +39,7 @@ import {
 	imageDimensions,
 } from "../ui/modals";
 import { type RibbonHost, buildTabs } from "../ui/tabs";
+import { t } from "../i18n";
 import type PptxViewerPlugin from "../main";
 
 export const VIEW_TYPE_PPTX = "pptx-viewer";
@@ -82,7 +83,7 @@ export class PptxView extends FileView {
 	}
 
 	getDisplayText(): string {
-		return this.file?.basename ?? "Presentation";
+		return this.file?.basename ?? t("view.title");
 	}
 
 	canAcceptExtension(extension: string): boolean {
@@ -95,7 +96,7 @@ export class PptxView extends FileView {
 		this.contentEl.addClass("pptx-view");
 		this.showThumbnails = this.plugin.settings.showThumbnails;
 
-		const loading = this.contentEl.createDiv({ cls: "pptx-message", text: "Reading deck…" });
+		const loading = this.contentEl.createDiv({ cls: "pptx-message", text: t("view.loading") });
 		try {
 			const loaded = await this.plugin.decks.get(file);
 			loading.remove();
@@ -231,7 +232,7 @@ export class PptxView extends FileView {
 		try {
 			fn(ctx);
 		} catch (error) {
-			new Notice(`That edit failed: ${(error as Error).message}`, 8000);
+			new Notice(t("notice.editFailed", { message: (error as Error).message }), 8000);
 		}
 		this.ribbon?.update();
 	}
@@ -244,7 +245,7 @@ export class PptxView extends FileView {
 		try {
 			target = fn(ctx);
 		} catch (error) {
-			new Notice(`That edit failed: ${(error as Error).message}`, 8000);
+			new Notice(t("notice.editFailed", { message: (error as Error).message }), 8000);
 			return;
 		}
 		if (target >= 0) this.viewer?.go(target);
@@ -325,7 +326,7 @@ export class PptxView extends FileView {
 						}),
 					);
 				} catch (error) {
-					new Notice(`Could not insert the image: ${(error as Error).message}`, 8000);
+					new Notice(t("notice.imageFailed", { message: (error as Error).message }), 8000);
 				}
 			})();
 		}).open();
@@ -335,7 +336,7 @@ export class PptxView extends FileView {
 		const ctx = this.context();
 		if (!ctx) return;
 		const current = hyperlinkState(ctx) ?? "";
-		new PromptModal(this.app, "Hyperlink", current, (value) => {
+		new PromptModal(this.app, t("modal.hyperlink"), current, (value) => {
 			this.run((c) => setHyperlink(c, value === "" ? null : value));
 		}).open();
 	}
@@ -351,7 +352,7 @@ export class PptxView extends FileView {
 		if (!ctx) return;
 		const layouts = listLayouts(ctx);
 		if (layouts.length === 0) {
-			new Notice("This deck has no slide layouts to choose from.");
+			new Notice(t("notice.noLayouts"));
 			return;
 		}
 		new LayoutPickerModal(this.app, layouts, (layout) => {
@@ -370,58 +371,64 @@ export class PptxView extends FileView {
 
 		if (shapes.length > 0) {
 			menu.addItem((item) =>
-				item.setTitle("Cut").setIcon("scissors").onClick(() => this.run(cutSelection)),
+				item.setTitle(t("cmd.cut")).setIcon("scissors").onClick(() => this.run(cutSelection)),
 			);
 			menu.addItem((item) =>
-				item.setTitle("Copy").setIcon("copy").onClick(() => this.run(copySelection)),
+				item.setTitle(t("cmd.copy")).setIcon("copy").onClick(() => this.run(copySelection)),
 			);
 			menu.addItem((item) =>
-				item.setTitle("Duplicate").setIcon("copy-plus").onClick(() => this.run(duplicateSelection)),
+				item
+					.setTitle(t("cmd.duplicate"))
+					.setIcon("copy-plus")
+					.onClick(() => this.run(duplicateSelection)),
 			);
 			menu.addItem((item) =>
-				item.setTitle("Delete").setIcon("trash").onClick(() => this.run(deleteSelection)),
+				item.setTitle(t("cmd.delete")).setIcon("trash").onClick(() => this.run(deleteSelection)),
 			);
 			menu.addSeparator();
 			menu.addItem((item) =>
 				item
-					.setTitle("Bring to front")
+					.setTitle(t("cmd.bringToFront"))
 					.setIcon("bring-to-front")
 					.onClick(() => this.run((c) => reorderSelection(c, "front"))),
 			);
 			menu.addItem((item) =>
 				item
-					.setTitle("Send to back")
+					.setTitle(t("cmd.sendToBack"))
 					.setIcon("send-to-back")
 					.onClick(() => this.run((c) => reorderSelection(c, "back"))),
 			);
 			if (shapes.length > 1 || hasGroup) menu.addSeparator();
 			if (shapes.length > 1) {
 				menu.addItem((item) =>
-					item.setTitle("Group").setIcon("group").onClick(() => this.run(groupSelection)),
+					item.setTitle(t("cmd.group")).setIcon("group").onClick(() => this.run(groupSelection)),
 				);
 			}
 			if (hasGroup) {
 				menu.addItem((item) =>
-					item.setTitle("Ungroup").setIcon("ungroup").onClick(() => this.run(ungroupSelection)),
+					item
+						.setTitle(t("cmd.ungroup"))
+						.setIcon("ungroup")
+						.onClick(() => this.run(ungroupSelection)),
 				);
 			}
 		} else {
 			menu.addItem((item) =>
 				item
-					.setTitle("Paste")
+					.setTitle(t("cmd.paste"))
 					.setIcon("clipboard-paste")
 					.setDisabled(!hasClipboard())
 					.onClick(() => this.run((c) => pasteClipboard(c))),
 			);
 			menu.addItem((item) =>
 				item
-					.setTitle("New slide")
+					.setTitle(t("cmd.newSlide"))
 					.setIcon("file-plus")
 					.onClick(() => this.runSlide((c) => newSlide(c))),
 			);
 			menu.addItem((item) =>
 				item
-					.setTitle("Delete slide")
+					.setTitle(t("cmd.deleteSlide"))
 					.setIcon("trash-2")
 					.setDisabled(!canDeleteSlide(ctx))
 					.onClick(() => this.run(deleteCurrentSlide)),
@@ -482,7 +489,7 @@ export class PptxView extends FileView {
 		if (!file || !loaded) return;
 		this.editController?.commit();
 		if (!loaded.pkg.isDirty) {
-			new Notice("No changes to save.");
+			new Notice(t("notice.noChanges"));
 			return;
 		}
 		try {
@@ -493,12 +500,12 @@ export class PptxView extends FileView {
 			this.ribbon?.update();
 			new Notice(
 				result.backupPath
-					? `Saved. A backup of the original is at ${result.backupPath}.`
-					: "Saved.",
+					? t("notice.savedBackup", { path: result.backupPath })
+					: t("notice.saved"),
 			);
 		} catch (error) {
 			if (error instanceof ConflictError) new Notice(error.message, 8000);
-			else new Notice(`Could not save: ${(error as Error).message}`, 8000);
+			else new Notice(t("notice.saveFailed", { message: (error as Error).message }), 8000);
 		}
 	}
 
@@ -513,9 +520,9 @@ export class PptxView extends FileView {
 
 	private renderError(file: TFile, error: Error): void {
 		const box = this.contentEl.createDiv({ cls: "pptx-message pptx-error" });
-		box.createDiv({ cls: "pptx-error-title", text: "This deck could not be opened" });
+		box.createDiv({ cls: "pptx-error-title", text: t("view.openFailed") });
 		box.createDiv({ cls: "pptx-error-detail", text: error.message });
-		const open = box.createEl("button", { text: "Open in the default app" });
+		const open = box.createEl("button", { text: t("view.openExternally") });
 		open.addEventListener("click", () => this.plugin.openExternally(file));
 	}
 

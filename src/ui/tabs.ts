@@ -52,6 +52,7 @@ import {
 	newSlide,
 	setSlideBackgroundColor,
 } from "../edit/slideCommands";
+import { type StringKey, t } from "../i18n";
 import type { RibbonItem, RibbonTab } from "./Ribbon";
 
 export interface RibbonHost {
@@ -86,19 +87,19 @@ export interface RibbonHost {
 }
 
 /** Presets offered by the shapes menu, in the order PowerPoint groups them. */
-export const SHAPE_PRESETS: { preset: string; label: string }[] = [
-	{ preset: "rect", label: "Rectangle" },
-	{ preset: "roundRect", label: "Rounded rectangle" },
-	{ preset: "ellipse", label: "Ellipse" },
-	{ preset: "triangle", label: "Triangle" },
-	{ preset: "diamond", label: "Diamond" },
-	{ preset: "pentagon", label: "Pentagon" },
-	{ preset: "hexagon", label: "Hexagon" },
-	{ preset: "star5", label: "Star" },
-	{ preset: "rightArrow", label: "Arrow" },
-	{ preset: "chevron", label: "Chevron" },
-	{ preset: "flowChartDecision", label: "Decision" },
-	{ preset: "wedgeRectCallout", label: "Callout" },
+export const SHAPE_PRESETS: { preset: string; key: StringKey }[] = [
+	{ preset: "rect", key: "shape.rect" },
+	{ preset: "roundRect", key: "shape.roundRect" },
+	{ preset: "ellipse", key: "shape.ellipse" },
+	{ preset: "triangle", key: "shape.triangle" },
+	{ preset: "diamond", key: "shape.diamond" },
+	{ preset: "pentagon", key: "shape.pentagon" },
+	{ preset: "hexagon", key: "shape.hexagon" },
+	{ preset: "star5", key: "shape.star5" },
+	{ preset: "rightArrow", key: "shape.rightArrow" },
+	{ preset: "chevron", key: "shape.chevron" },
+	{ preset: "flowChartDecision", key: "shape.flowChartDecision" },
+	{ preset: "wedgeRectCallout", key: "shape.wedgeRectCallout" },
 ];
 
 const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 54, 60, 66, 72, 88];
@@ -164,16 +165,16 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 	const fontGroup: RibbonItem[] = [
 		{
 			kind: "select",
-			tooltip: "Font",
+			tooltip: t("cmd.font"),
 			width: "9.5em",
 			options: () => FONTS.map((f) => ({ value: f, label: f })),
 			value: () => state()?.font ?? "",
 			isEnabled: () => host.canEdit() && hasSelection(),
-			onChange: (value) => host.run((ctx) => applyTextFormat(ctx, { font: value }, "Font")),
+			onChange: (value) => host.run((ctx) => applyTextFormat(ctx, { font: value }, t("cmd.font"))),
 		},
 		{
 			kind: "select",
-			tooltip: "Font size",
+			tooltip: t("cmd.fontSize"),
 			width: "4.5em",
 			options: () => FONT_SIZES.map((s) => ({ value: String(s), label: String(s) })),
 			value: () => {
@@ -182,24 +183,24 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 			},
 			isEnabled: () => host.canEdit() && hasSelection(),
 			onChange: (value) =>
-				host.run((ctx) => applyTextFormat(ctx, { size: Number(value) }, "Font size")),
+				host.run((ctx) => applyTextFormat(ctx, { size: Number(value) }, t("cmd.fontSize"))),
 		},
-		textButton("bold", "Bold", "bold"),
-		textButton("italic", "Italic", "italic"),
-		textButton("underline", "Underline", "underline"),
-		textButton("strikethrough", "Strikethrough", "strike"),
+		textButton("bold", t("cmd.bold"), "bold"),
+		textButton("italic", t("cmd.italic"), "italic"),
+		textButton("underline", t("cmd.underline"), "underline"),
+		textButton("strikethrough", t("cmd.strike"), "strike"),
 		{
 			kind: "color",
 			icon: "baseline",
-			tooltip: "Text colour",
+			tooltip: t("cmd.textColour"),
 			value: () => state()?.color ?? null,
 			isEnabled: () => host.canEdit() && hasSelection(),
-			onChange: (color) => host.run((ctx) => applyTextFormat(ctx, { color }, "Text colour")),
+			onChange: (color) => host.run((ctx) => applyTextFormat(ctx, { color }, t("cmd.textColour"))),
 		},
 		{
 			kind: "button",
 			icon: "link",
-			tooltip: "Add or edit a hyperlink",
+			tooltip: t("cmd.hyperlink"),
 			isEnabled: () => host.canEdit() && hasSelection(),
 			onClick: () => host.pickHyperlink(),
 		},
@@ -209,7 +210,7 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 		{
 			kind: "button",
 			icon: "list",
-			tooltip: "Bulleted list",
+			tooltip: t("cmd.bulletList"),
 			isEnabled: () => host.canEdit() && hasSelection(),
 			isActive: () => state()?.bulleted ?? false,
 			onClick: () =>
@@ -217,56 +218,56 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 					applyParagraphFormat(
 						ctx,
 						{ bullet: state()?.bulleted ? "none" : "char" },
-						"Bulleted list",
+						t("cmd.bulletList"),
 					),
 				),
 		},
 		{
 			kind: "button",
 			icon: "list-ordered",
-			tooltip: "Numbered list",
+			tooltip: t("cmd.numberedList"),
 			isEnabled: () => host.canEdit() && hasSelection(),
-			onClick: () => host.run((ctx) => applyParagraphFormat(ctx, { bullet: "number" }, "Numbered list")),
+			onClick: () => host.run((ctx) => applyParagraphFormat(ctx, { bullet: "number" }, t("cmd.numberedList"))),
 		},
 		{
 			kind: "button",
 			icon: "indent-decrease",
-			tooltip: "Decrease list level",
+			tooltip: t("cmd.outdent"),
 			isEnabled: () => host.canEdit() && hasSelection(),
-			onClick: () => host.run((ctx) => applyParagraphFormat(ctx, { levelDelta: -1 }, "Outdent")),
+			onClick: () => host.run((ctx) => applyParagraphFormat(ctx, { levelDelta: -1 }, t("cmd.outdent"))),
 		},
 		{
 			kind: "button",
 			icon: "indent-increase",
-			tooltip: "Increase list level",
+			tooltip: t("cmd.indent"),
 			isEnabled: () => host.canEdit() && hasSelection(),
-			onClick: () => host.run((ctx) => applyParagraphFormat(ctx, { levelDelta: 1 }, "Indent")),
+			onClick: () => host.run((ctx) => applyParagraphFormat(ctx, { levelDelta: 1 }, t("cmd.indent"))),
 		},
 		{ kind: "separator" },
-		alignButton("align-left", "Align left", "l"),
-		alignButton("align-center", "Centre", "ctr"),
-		alignButton("align-right", "Align right", "r"),
-		alignButton("align-justify", "Justify", "just"),
+		alignButton("align-left", t("cmd.alignLeft"), "l"),
+		alignButton("align-center", t("cmd.alignCentre"), "ctr"),
+		alignButton("align-right", t("cmd.alignRight"), "r"),
+		alignButton("align-justify", t("cmd.justify"), "just"),
 		{
 			kind: "menu",
 			icon: "chevrons-up-down",
-			tooltip: "Line spacing and vertical alignment",
+			tooltip: t("cmd.spacingMenu"),
 			isEnabled: () => host.canEdit() && hasSelection(),
 			build: (menu: Menu) => {
 				for (const value of [1, 1.15, 1.5, 2]) {
 					menu.addItem((item) =>
 						item
-							.setTitle(`Line spacing ${value}`)
+							.setTitle(t("cmd.lineSpacing", { value }))
 							.onClick(() =>
-								host.run((ctx) => applyParagraphFormat(ctx, { lineSpacing: value }, "Line spacing")),
+								host.run((ctx) => applyParagraphFormat(ctx, { lineSpacing: value }, t("cmd.lineSpacing", { value }))),
 							),
 					);
 				}
 				menu.addSeparator();
 				const anchors: { label: string; value: "t" | "ctr" | "b" }[] = [
-					{ label: "Align text top", value: "t" },
-					{ label: "Align text middle", value: "ctr" },
-					{ label: "Align text bottom", value: "b" },
+					{ label: t("cmd.anchorTop"), value: "t" },
+					{ label: t("cmd.anchorMiddle"), value: "ctr" },
+					{ label: t("cmd.anchorBottom"), value: "b" },
 				];
 				for (const anchor of anchors) {
 					menu.addItem((item) =>
@@ -283,15 +284,15 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 		{
 			kind: "menu",
 			icon: "layers",
-			label: "Arrange",
-			tooltip: "Bring forward, send backward",
+			label: t("cmd.arrange"),
+			tooltip: t("cmd.arrangeTooltip"),
 			isEnabled: () => host.canEdit() && hasSelection(),
 			build: (menu: Menu) => {
 				const options = [
-					{ label: "Bring to front", mode: "front" as const, icon: "bring-to-front" },
-					{ label: "Bring forward", mode: "forward" as const, icon: "arrow-up" },
-					{ label: "Send backward", mode: "backward" as const, icon: "arrow-down" },
-					{ label: "Send to back", mode: "back" as const, icon: "send-to-back" },
+					{ label: t("cmd.bringToFront"), mode: "front" as const, icon: "bring-to-front" },
+					{ label: t("cmd.bringForward"), mode: "forward" as const, icon: "arrow-up" },
+					{ label: t("cmd.sendBackward"), mode: "backward" as const, icon: "arrow-down" },
+					{ label: t("cmd.sendToBack"), mode: "back" as const, icon: "send-to-back" },
 				];
 				for (const option of options) {
 					menu.addItem((item) =>
@@ -306,17 +307,17 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 		{
 			kind: "menu",
 			icon: "align-horizontal-justify-center",
-			label: "Align",
-			tooltip: "Align and distribute",
+			label: t("cmd.align"),
+			tooltip: t("cmd.alignTooltip"),
 			isEnabled: () => host.canEdit() && hasSelection(),
 			build: (menu: Menu) => {
 				const options = [
-					{ label: "Align left", mode: "left" as const },
-					{ label: "Align centre", mode: "centerH" as const },
-					{ label: "Align right", mode: "right" as const },
-					{ label: "Align top", mode: "top" as const },
-					{ label: "Align middle", mode: "middle" as const },
-					{ label: "Align bottom", mode: "bottom" as const },
+					{ label: t("cmd.alignLeft"), mode: "left" as const },
+					{ label: t("cmd.alignCentre"), mode: "centerH" as const },
+					{ label: t("cmd.alignRight"), mode: "right" as const },
+					{ label: t("cmd.alignTop"), mode: "top" as const },
+					{ label: t("cmd.alignMiddle"), mode: "middle" as const },
+					{ label: t("cmd.alignBottom"), mode: "bottom" as const },
 				];
 				for (const option of options) {
 					menu.addItem((item) =>
@@ -326,13 +327,13 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 				menu.addSeparator();
 				menu.addItem((item) =>
 					item
-						.setTitle("Distribute horizontally")
+						.setTitle(t("cmd.distributeH"))
 						.setDisabled(selectionCount() < 3)
 						.onClick(() => host.run((ctx) => distributeSelection(ctx, "h"))),
 				);
 				menu.addItem((item) =>
 					item
-						.setTitle("Distribute vertically")
+						.setTitle(t("cmd.distributeV"))
 						.setDisabled(selectionCount() < 3)
 						.onClick(() => host.run((ctx) => distributeSelection(ctx, "v"))),
 				);
@@ -341,14 +342,14 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 		{
 			kind: "button",
 			icon: "group",
-			tooltip: "Group",
+			tooltip: t("cmd.group"),
 			isEnabled: () => host.canEdit() && selectionCount() > 1,
 			onClick: () => host.run(groupSelection),
 		},
 		{
 			kind: "button",
 			icon: "ungroup",
-			tooltip: "Ungroup",
+			tooltip: t("cmd.ungroup"),
 			isEnabled: () => host.canEdit() && hasGroup(),
 			onClick: () => host.run(ungroupSelection),
 		},
@@ -358,7 +359,7 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 		{
 			kind: "color",
 			icon: "paint-bucket",
-			tooltip: "Shape fill",
+			tooltip: t("cmd.shapeFill"),
 			allowNone: true,
 			value: () => fillState(host.ctx()),
 			isEnabled: () => host.canEdit() && hasSelection(),
@@ -367,36 +368,36 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 		{
 			kind: "color",
 			icon: "square",
-			tooltip: "Shape outline",
+			tooltip: t("cmd.shapeOutline"),
 			allowNone: true,
 			value: () => outlineState(host.ctx()),
 			isEnabled: () => host.canEdit() && hasSelection(),
-			onChange: (color) => host.run((ctx) => setOutline(ctx, { color }, "Outline colour")),
+			onChange: (color) => host.run((ctx) => setOutline(ctx, { color }, t("cmd.shapeOutline"))),
 		},
 		{
 			kind: "menu",
 			icon: "pencil-ruler",
-			tooltip: "Outline weight and style",
+			tooltip: t("cmd.outlineStyle"),
 			isEnabled: () => host.canEdit() && hasSelection(),
 			build: (menu: Menu) => {
 				for (const width of [0.75, 1, 1.5, 2.25, 3, 4.5, 6]) {
 					menu.addItem((item) =>
 						item
-							.setTitle(`${width} pt`)
-							.onClick(() => host.run((ctx) => setOutline(ctx, { width }, "Outline weight"))),
+							.setTitle(t("cmd.outlineWeight", { value: width }))
+							.onClick(() => host.run((ctx) => setOutline(ctx, { width }, t("cmd.outlineStyle")))),
 					);
 				}
 				menu.addSeparator();
 				const dashes = [
-					{ label: "Solid", value: "solid" },
-					{ label: "Dashed", value: "dash" },
-					{ label: "Dotted", value: "sysDot" },
+					{ label: t("cmd.dashSolid"), value: "solid" },
+					{ label: t("cmd.dashDashed"), value: "dash" },
+					{ label: t("cmd.dashDotted"), value: "sysDot" },
 				];
 				for (const dash of dashes) {
 					menu.addItem((item) =>
 						item
 							.setTitle(dash.label)
-							.onClick(() => host.run((ctx) => setOutline(ctx, { dash: dash.value }, "Outline style"))),
+							.onClick(() => host.run((ctx) => setOutline(ctx, { dash: dash.value }, t("cmd.outlineStyle")))),
 					);
 				}
 			},
@@ -406,21 +407,19 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 	const shapesMenu: RibbonItem = {
 		kind: "menu",
 		icon: "shapes",
-		label: "Shapes",
-		tooltip: "Insert a shape",
+		label: t("cmd.shapes"),
+		tooltip: t("cmd.insertShape"),
 		isEnabled: host.canEdit,
 		build: (menu: Menu) => {
 			for (const shape of SHAPE_PRESETS) {
 				menu.addItem((item) =>
 					item
-						.setTitle(shape.label)
-						.onClick(() => host.run((ctx) => insertAutoShape(ctx, shape.preset, shape.label))),
+						.setTitle(t(shape.key))
+						.onClick(() => host.run((ctx) => insertAutoShape(ctx, shape.preset, t(shape.key)))),
 				);
 			}
 			menu.addSeparator();
-			menu.addItem((item) =>
-				item.setTitle("Line").onClick(() => host.run(insertLine)),
-			);
+			menu.addItem((item) => item.setTitle(t("cmd.line")).onClick(() => host.run(insertLine)));
 		},
 	};
 
@@ -428,28 +427,28 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 		{
 			kind: "button",
 			icon: "clipboard-paste",
-			tooltip: "Paste (Cmd/Ctrl+V)",
+			tooltip: t("cmd.paste"),
 			isEnabled: () => host.canEdit() && hasClipboard(),
 			onClick: () => host.run((ctx) => pasteClipboard(ctx)),
 		},
 		{
 			kind: "button",
 			icon: "scissors",
-			tooltip: "Cut (Cmd/Ctrl+X)",
+			tooltip: t("cmd.cut"),
 			isEnabled: () => host.canEdit() && hasSelection(),
 			onClick: () => host.run(cutSelection),
 		},
 		{
 			kind: "button",
 			icon: "copy",
-			tooltip: "Copy (Cmd/Ctrl+C)",
+			tooltip: t("cmd.copy"),
 			isEnabled: () => host.canEdit() && hasSelection(),
 			onClick: () => host.run(copySelection),
 		},
 		{
 			kind: "button",
 			icon: "copy-plus",
-			tooltip: "Duplicate (Cmd/Ctrl+D)",
+			tooltip: t("cmd.duplicate"),
 			isEnabled: () => host.canEdit() && hasSelection(),
 			onClick: () => host.run(duplicateSelection),
 		},
@@ -459,29 +458,29 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 		{
 			kind: "button",
 			icon: "file-plus",
-			label: "New",
-			tooltip: "New slide",
+			label: t("cmd.newSlideShort"),
+			tooltip: t("cmd.newSlide"),
 			isEnabled: host.canEdit,
 			onClick: () => host.runSlide((ctx) => newSlide(ctx)),
 		},
 		{
 			kind: "button",
 			icon: "layout-template",
-			tooltip: "New slide from a layout",
+			tooltip: t("cmd.newSlideFromLayout"),
 			isEnabled: host.canEdit,
 			onClick: () => host.pickLayout(),
 		},
 		{
 			kind: "button",
 			icon: "files",
-			tooltip: "Duplicate slide",
+			tooltip: t("cmd.duplicateSlide"),
 			isEnabled: host.canEdit,
 			onClick: () => host.runSlide(duplicateCurrentSlide),
 		},
 		{
 			kind: "button",
 			icon: "trash-2",
-			tooltip: "Delete slide",
+			tooltip: t("cmd.deleteSlide"),
 			isEnabled: () => {
 				const ctx = host.ctx();
 				return host.canEdit() && ctx !== null && canDeleteSlide(ctx);
@@ -491,14 +490,14 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 		{
 			kind: "button",
 			icon: "arrow-up",
-			tooltip: "Move slide up",
+			tooltip: t("cmd.moveSlideUp"),
 			isEnabled: host.canEdit,
 			onClick: () => host.runSlide((ctx) => moveCurrentSlide(ctx, -1)),
 		},
 		{
 			kind: "button",
 			icon: "arrow-down",
-			tooltip: "Move slide down",
+			tooltip: t("cmd.moveSlideDown"),
 			isEnabled: host.canEdit,
 			onClick: () => host.runSlide((ctx) => moveCurrentSlide(ctx, 1)),
 		},
@@ -507,53 +506,53 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 	return [
 		{
 			id: "home",
-			title: "Home",
+			title: t("tab.home"),
 			groups: [
 				{
-					title: "Undo",
+					title: t("group.undo"),
 					items: [
 						{
 							kind: "button",
 							icon: "undo-2",
-							tooltip: "Undo (Cmd/Ctrl+Z)",
+							tooltip: t("cmd.undo"),
 							isEnabled: host.canUndo,
 							onClick: host.undo,
 						},
 						{
 							kind: "button",
 							icon: "redo-2",
-							tooltip: "Redo (Cmd/Ctrl+Shift+Z)",
+							tooltip: t("cmd.redo"),
 							isEnabled: host.canRedo,
 							onClick: host.redo,
 						},
 						{
 							kind: "button",
 							icon: "save",
-							tooltip: "Save (Cmd/Ctrl+S)",
+							tooltip: t("cmd.save"),
 							isEnabled: host.isDirty,
 							onClick: host.save,
 						},
 					],
 				},
-				{ title: "Clipboard", items: clipboardItems },
-				{ title: "Slides", items: slideItems.slice(0, 4) },
-				{ title: "Font", items: fontGroup },
-				{ title: "Paragraph", items: paragraphGroup },
-				{ title: "Drawing", items: [shapesMenu, ...shapeStyleItems, ...arrangeItems] },
+				{ title: t("group.clipboard"), items: clipboardItems },
+				{ title: t("group.slides"), items: slideItems.slice(0, 4) },
+				{ title: t("group.font"), items: fontGroup },
+				{ title: t("group.paragraph"), items: paragraphGroup },
+				{ title: t("group.drawing"), items: [shapesMenu, ...shapeStyleItems, ...arrangeItems] },
 				{
-					title: "Editing",
+					title: t("group.editing"),
 					items: [
 						{
 							kind: "button",
 							icon: "mouse-pointer-2",
-							tooltip: "Select all (Cmd/Ctrl+A)",
+							tooltip: t("cmd.selectAll"),
 							isEnabled: host.canEdit,
 							onClick: host.selectAll,
 						},
 						{
 							kind: "button",
 							icon: "trash",
-							tooltip: "Delete (Del)",
+							tooltip: t("cmd.delete"),
 							isEnabled: () => host.canEdit() && hasSelection(),
 							onClick: () => host.run(deleteSelection),
 						},
@@ -563,17 +562,17 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 		},
 		{
 			id: "insert",
-			title: "Insert",
+			title: t("tab.insert"),
 			groups: [
-				{ title: "Slides", items: slideItems },
+				{ title: t("group.slides"), items: slideItems },
 				{
-					title: "Objects",
+					title: t("group.objects"),
 					items: [
 						{
 							kind: "button",
 							icon: "type",
-							label: "Text box",
-							tooltip: "Insert a text box",
+							label: t("cmd.textBox"),
+							tooltip: t("cmd.insertTextBox"),
 							isEnabled: host.canEdit,
 							onClick: () => host.run(insertTextBox),
 						},
@@ -581,16 +580,16 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 						{
 							kind: "button",
 							icon: "image",
-							label: "Picture",
-							tooltip: "Insert a picture from the vault",
+							label: t("cmd.picture"),
+							tooltip: t("cmd.insertPicture"),
 							isEnabled: host.canEdit,
 							onClick: () => host.pickImage(),
 						},
 						{
 							kind: "button",
 							icon: "table",
-							label: "Table",
-							tooltip: "Insert a table",
+							label: t("cmd.table"),
+							tooltip: t("cmd.insertTable"),
 							isEnabled: host.canEdit,
 							onClick: () => host.pickTable(),
 						},
@@ -600,24 +599,24 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 		},
 		{
 			id: "format",
-			title: "Format",
+			title: t("tab.format"),
 			groups: [
-				{ title: "Shape styles", items: shapeStyleItems },
+				{ title: t("group.shapeStyles"), items: shapeStyleItems },
 				{
-					title: "Shape",
+					title: t("group.shape"),
 					items: [
 						{
 							kind: "menu",
 							icon: "shapes",
-							label: "Change",
-							tooltip: "Change the selected shape",
+							label: t("cmd.changeShape"),
+							tooltip: t("cmd.changeShapeTooltip"),
 							isEnabled: () => host.canEdit() && hasSelection(),
 							build: (menu: Menu) => {
 								for (const shape of SHAPE_PRESETS) {
 									menu.addItem((item) =>
 										item
-											.setTitle(shape.label)
-											.onClick(() => host.run((ctx) => changeShape(ctx, shape.preset, shape.label))),
+											.setTitle(t(shape.key))
+											.onClick(() => host.run((ctx) => changeShape(ctx, shape.preset, t(shape.key)))),
 									);
 								}
 							},
@@ -625,76 +624,76 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 						{
 							kind: "button",
 							icon: "paintbrush",
-							tooltip: "Copy formatting",
+							tooltip: t("cmd.copyFormat"),
 							isEnabled: () => host.canEdit() && hasSelection(),
 							onClick: () => host.run(copyFormatting),
 						},
 						{
 							kind: "button",
 							icon: "clipboard-check",
-							tooltip: "Paste formatting",
+							tooltip: t("cmd.pasteFormat"),
 							isEnabled: () => host.canEdit() && hasSelection() && hasCopiedFormat(),
 							onClick: () => host.run(pasteFormatting),
 						},
 					],
 				},
-				{ title: "Arrange", items: arrangeItems },
+				{ title: t("group.arrange"), items: arrangeItems },
 				{
-					title: "Rotate",
+					title: t("group.rotate"),
 					items: [
 						{
 							kind: "button",
 							icon: "rotate-cw",
-							tooltip: "Rotate 90° right",
+							tooltip: t("cmd.rotateRight"),
 							isEnabled: () => host.canEdit() && hasSelection(),
 							onClick: () => host.run((ctx) => rotateBy(ctx, 90)),
 						},
 						{
 							kind: "button",
 							icon: "rotate-ccw",
-							tooltip: "Rotate 90° left",
+							tooltip: t("cmd.rotateLeft"),
 							isEnabled: () => host.canEdit() && hasSelection(),
 							onClick: () => host.run((ctx) => rotateBy(ctx, -90)),
 						},
 						{
 							kind: "button",
 							icon: "flip-horizontal",
-							tooltip: "Flip horizontally",
+							tooltip: t("cmd.flipH"),
 							isEnabled: () => host.canEdit() && hasSelection(),
 							onClick: () => host.run((ctx) => flipSelection(ctx, "h")),
 						},
 						{
 							kind: "button",
 							icon: "flip-vertical",
-							tooltip: "Flip vertically",
+							tooltip: t("cmd.flipV"),
 							isEnabled: () => host.canEdit() && hasSelection(),
 							onClick: () => host.run((ctx) => flipSelection(ctx, "v")),
 						},
 					],
 				},
 				{
-					title: "Position and size",
+					title: t("group.positionSize"),
 					items: [
-						numberField("X", "Distance from the left edge, in pixels", () => geometryState(host.ctx())?.x ?? null, (x) => host.run((ctx) => setGeometry(ctx, { x }, "Set position"))),
-						numberField("Y", "Distance from the top edge, in pixels", () => geometryState(host.ctx())?.y ?? null, (y) => host.run((ctx) => setGeometry(ctx, { y }, "Set position"))),
-						numberField("W", "Width in pixels", () => geometryState(host.ctx())?.w ?? null, (w) => host.run((ctx) => setGeometry(ctx, { w }, "Set size"))),
-						numberField("H", "Height in pixels", () => geometryState(host.ctx())?.h ?? null, (h) => host.run((ctx) => setGeometry(ctx, { h }, "Set size"))),
-						numberField("°", "Rotation in degrees", () => geometryState(host.ctx())?.rotation ?? null, (rotation) => host.run((ctx) => setGeometry(ctx, { rotation }, "Set rotation"))),
+						numberField("X", t("cmd.posX"), () => geometryState(host.ctx())?.x ?? null, (x) => host.run((ctx) => setGeometry(ctx, { x }, "Set position"))),
+						numberField("Y", t("cmd.posY"), () => geometryState(host.ctx())?.y ?? null, (y) => host.run((ctx) => setGeometry(ctx, { y }, "Set position"))),
+						numberField("W", t("cmd.sizeW"), () => geometryState(host.ctx())?.w ?? null, (w) => host.run((ctx) => setGeometry(ctx, { w }, "Set size"))),
+						numberField("H", t("cmd.sizeH"), () => geometryState(host.ctx())?.h ?? null, (h) => host.run((ctx) => setGeometry(ctx, { h }, "Set size"))),
+						numberField("°", t("cmd.rotation"), () => geometryState(host.ctx())?.rotation ?? null, (rotation) => host.run((ctx) => setGeometry(ctx, { rotation }, "Set rotation"))),
 					],
 				},
 			],
 		},
 		{
 			id: "design",
-			title: "Design",
+			title: t("tab.design"),
 			groups: [
 				{
-					title: "Slide background",
+					title: t("group.background"),
 					items: [
 						{
 							kind: "color",
 							icon: "paint-bucket",
-							tooltip: "Slide background colour",
+							tooltip: t("cmd.slideBackground"),
 							allowNone: true,
 							value: host.slideBackground,
 							isEnabled: host.canEdit,
@@ -702,81 +701,81 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 						},
 					],
 				},
-				{ title: "Slides", items: slideItems },
+				{ title: t("group.slides"), items: slideItems },
 			],
 		},
 		{
 			id: "table",
-			title: "Table",
+			title: t("tab.table"),
 			visible: () => hasTableSelection(host.ctx(), host.tableSelection),
 			groups: [
 				{
-					title: "Rows and columns",
+					title: t("group.rowsColumns"),
 					items: [
 						{
 							kind: "button",
 							icon: "between-vertical-start",
-							label: "Above",
-							tooltip: "Insert a row above",
+							label: t("cmd.rowAbove"),
+							tooltip: t("cmd.rowAboveTooltip"),
 							onClick: () => host.run((ctx) => insertTableRow(ctx, host.tableSelection, "above")),
 						},
 						{
 							kind: "button",
 							icon: "between-vertical-end",
-							label: "Below",
-							tooltip: "Insert a row below",
+							label: t("cmd.rowBelow"),
+							tooltip: t("cmd.rowBelowTooltip"),
 							onClick: () => host.run((ctx) => insertTableRow(ctx, host.tableSelection, "below")),
 						},
 						{
 							kind: "button",
 							icon: "between-horizontal-start",
-							label: "Left",
-							tooltip: "Insert a column to the left",
+							label: t("cmd.columnLeft"),
+							tooltip: t("cmd.columnLeftTooltip"),
 							onClick: () => host.run((ctx) => insertTableColumn(ctx, host.tableSelection, "left")),
 						},
 						{
 							kind: "button",
 							icon: "between-horizontal-end",
-							label: "Right",
-							tooltip: "Insert a column to the right",
+							label: t("cmd.columnRight"),
+							tooltip: t("cmd.columnRightTooltip"),
 							onClick: () => host.run((ctx) => insertTableColumn(ctx, host.tableSelection, "right")),
 						},
 						{ kind: "separator" },
 						{
 							kind: "button",
 							icon: "rows-3",
-							tooltip: "Delete the selected rows",
+							tooltip: t("cmd.deleteRows"),
 							onClick: () => host.run((ctx) => deleteTableRows(ctx, host.tableSelection)),
 						},
 						{
 							kind: "button",
 							icon: "columns-3",
-							tooltip: "Delete the selected columns",
+							tooltip: t("cmd.deleteColumns"),
 							onClick: () => host.run((ctx) => deleteTableColumns(ctx, host.tableSelection)),
 						},
 					],
 				},
 				{
-					title: "Cells",
+					title: t("group.cells"),
 					items: [
 						{
 							kind: "button",
 							icon: "table-cells-merge",
-							label: "Merge",
-							tooltip: "Merge the selected cells",
+							label: t("cmd.merge"),
+							tooltip: t("cmd.mergeTooltip"),
 							onClick: () => host.run((ctx) => mergeTableCells(ctx, host.tableSelection)),
 						},
 						{
 							kind: "button",
 							icon: "table-cells-split",
-							label: "Split",
-							tooltip: "Split merged cells",
+							label: t("cmd.split"),
+							tooltip: t("cmd.splitTooltip"),
 							onClick: () => host.run((ctx) => splitTableCells(ctx, host.tableSelection)),
 						},
 						{
 							kind: "color",
 							icon: "paint-bucket",
-							tooltip: "Cell fill",
+							tooltip: t("cmd.cellFill"),
 							allowNone: true,
 							value: () => null,
 							onChange: (color) => host.run((ctx) => setCellFill(ctx, host.tableSelection, color)),
@@ -787,57 +786,57 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 		},
 		{
 			id: "view",
-			title: "View",
+			title: t("tab.view"),
 			groups: [
 				{
-					title: "Zoom",
+					title: t("group.zoom"),
 					items: [
-						{ kind: "button", icon: "zoom-out", tooltip: "Zoom out", onClick: host.zoomOut },
-						{ kind: "button", icon: "zoom-in", tooltip: "Zoom in", onClick: host.zoomIn },
-						{ kind: "button", icon: "maximize", tooltip: "Fit to pane", onClick: host.zoomToFit },
+						{ kind: "button", icon: "zoom-out", tooltip: t("zoom.out"), onClick: host.zoomOut },
+						{ kind: "button", icon: "zoom-in", tooltip: t("zoom.in"), onClick: host.zoomIn },
+						{ kind: "button", icon: "maximize", tooltip: t("zoom.fit"), onClick: host.zoomToFit },
 					],
 				},
 				{
-					title: "Show",
+					title: t("group.show"),
 					items: [
 						{
 							kind: "button",
 							icon: "sticky-note",
-							label: "Notes",
-							tooltip: "Toggle speaker notes",
+							label: t("cmd.notes"),
+							tooltip: t("cmd.notesTooltip"),
 							isActive: host.notesShown,
 							onClick: host.toggleNotes,
 						},
 						{
 							kind: "button",
 							icon: "panel-left",
-							label: "Thumbnails",
-							tooltip: "Toggle the thumbnail rail",
+							label: t("cmd.thumbnails"),
+							tooltip: t("cmd.thumbnailsTooltip"),
 							onClick: host.toggleThumbnails,
 						},
 					],
 				},
 				{
-					title: "Export",
+					title: t("group.export"),
 					items: [
 						{
 							kind: "button",
 							icon: "image-down",
-							label: "PNG",
-							tooltip: "Export this slide as a PNG",
+							label: t("cmd.exportPng"),
+							tooltip: t("cmd.exportPngTooltip"),
 							onClick: host.exportPng,
 						},
 						{
 							kind: "button",
 							icon: "file-text",
-							label: "Markdown",
-							tooltip: "Extract the deck's text to a note",
+							label: t("cmd.exportMarkdown"),
+							tooltip: t("cmd.exportMarkdownTooltip"),
 							onClick: host.extractMarkdown,
 						},
 						{
 							kind: "button",
 							icon: "external-link",
-							tooltip: "Open in the default app",
+							tooltip: t("view.openExternally"),
 							onClick: host.openExternally,
 						},
 					],

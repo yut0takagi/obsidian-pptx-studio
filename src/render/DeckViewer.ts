@@ -1,4 +1,5 @@
 import { setIcon } from "obsidian";
+import { t } from "../i18n";
 import type { EditController } from "../edit/EditController";
 import type { ShapeEditor } from "../edit/ShapeEditor";
 import type { PptxPackage } from "../pptx/package";
@@ -115,18 +116,18 @@ export class DeckViewer {
 	private buildStatusBar(): void {
 		const bar = this.root.createDiv({ cls: "pptx-statusbar" });
 		const nav = bar.createDiv({ cls: "pptx-toolbar-group" });
-		this.iconButton(nav, "chevron-left", "Previous slide (\u2190)", () => this.go(this.index - 1));
+		this.iconButton(nav, "chevron-left", t("nav.previous"), () => this.go(this.index - 1));
 		this.counterEl = nav.createSpan({ cls: "pptx-counter" });
-		this.iconButton(nav, "chevron-right", "Next slide (\u2192)", () => this.go(this.index + 1));
+		this.iconButton(nav, "chevron-right", t("nav.next"), () => this.go(this.index + 1));
 
 		const right = bar.createDiv({ cls: "pptx-toolbar-group pptx-toolbar-right" });
-		this.iconButton(right, "sticky-note", "Toggle speaker notes (N)", () => this.toggleNotes());
-		this.iconButton(right, "zoom-out", "Zoom out (\u2212)", () => this.stepZoom(-1));
+		this.iconButton(right, "sticky-note", t("notes.toggle"), () => this.toggleNotes());
+		this.iconButton(right, "zoom-out", t("zoom.out"), () => this.stepZoom(-1));
 		this.zoomLabelEl = right.createSpan({ cls: "pptx-zoom-label" });
 		this.zoomLabelEl.addEventListener("click", () => this.setZoom(null));
-		this.zoomLabelEl.setAttribute("aria-label", "Fit to pane (0)");
-		this.iconButton(right, "zoom-in", "Zoom in (+)", () => this.stepZoom(1));
-		this.iconButton(right, "maximize", "Fit to pane (0)", () => this.setZoom(null));
+		this.zoomLabelEl.setAttribute("aria-label", t("zoom.fit"));
+		this.iconButton(right, "zoom-in", t("zoom.in"), () => this.stepZoom(1));
+		this.iconButton(right, "maximize", t("zoom.fit"), () => this.setZoom(null));
 	}
 
 	private buildToolbar(): void {
@@ -134,43 +135,43 @@ export class DeckViewer {
 		const nav = bar.createDiv({ cls: "pptx-toolbar-group" });
 
 		if (this.options.pinnedSlide === undefined && this.deck.slides.length > 1) {
-			this.iconButton(nav, "chevron-left", "Previous slide (←)", () => this.go(this.index - 1));
+			this.iconButton(nav, "chevron-left", t("nav.previous"), () => this.go(this.index - 1));
 			this.counterEl = nav.createSpan({ cls: "pptx-counter" });
-			this.iconButton(nav, "chevron-right", "Next slide (→)", () => this.go(this.index + 1));
+			this.iconButton(nav, "chevron-right", t("nav.next"), () => this.go(this.index + 1));
 		} else {
 			this.counterEl = nav.createSpan({ cls: "pptx-counter" });
 		}
 
 		const zoomGroup = bar.createDiv({ cls: "pptx-toolbar-group" });
-		this.iconButton(zoomGroup, "zoom-out", "Zoom out (−)", () => this.stepZoom(-1));
+		this.iconButton(zoomGroup, "zoom-out", t("zoom.out"), () => this.stepZoom(-1));
 		this.zoomLabelEl = zoomGroup.createSpan({ cls: "pptx-zoom-label" });
 		this.zoomLabelEl.addEventListener("click", () => this.setZoom(null));
-		this.zoomLabelEl.setAttribute("aria-label", "Fit to pane (0)");
-		this.iconButton(zoomGroup, "zoom-in", "Zoom in (+)", () => this.stepZoom(1));
-		this.iconButton(zoomGroup, "maximize", "Fit to pane (0)", () => this.setZoom(null));
+		this.zoomLabelEl.setAttribute("aria-label", t("zoom.fit"));
+		this.iconButton(zoomGroup, "zoom-in", t("zoom.in"), () => this.stepZoom(1));
+		this.iconButton(zoomGroup, "maximize", t("zoom.fit"), () => this.setZoom(null));
 
 		const actions = bar.createDiv({ cls: "pptx-toolbar-group pptx-toolbar-right" });
 		if (!this.options.compact) {
-			this.iconButton(actions, "sticky-note", "Toggle speaker notes (N)", () => this.toggleNotes());
+			this.iconButton(actions, "sticky-note", t("notes.toggle"), () => this.toggleNotes());
 		}
 		if (this.options.onSave) {
-			this.saveButtonEl = this.iconButton(actions, "save", "Save the deck (Cmd/Ctrl+S)", () =>
+			this.saveButtonEl = this.iconButton(actions, "save", t("cmd.save"), () =>
 				this.options.onSave?.(),
 			);
 			this.saveButtonEl.addClass("pptx-save");
 		}
 		if (this.options.onExportPng) {
-			this.iconButton(actions, "image-down", "Export this slide as PNG", () =>
+			this.iconButton(actions, "image-down", t("cmd.exportPngTooltip"), () =>
 				this.options.onExportPng?.(this.currentSlideNumber),
 			);
 		}
 		if (this.options.onExtractMarkdown) {
-			this.iconButton(actions, "file-text", "Extract deck text to Markdown", () =>
+			this.iconButton(actions, "file-text", t("cmd.exportMarkdownTooltip"), () =>
 				this.options.onExtractMarkdown?.(),
 			);
 		}
 		if (this.options.onOpenExternal) {
-			this.iconButton(actions, "external-link", "Open in the default app", () =>
+			this.iconButton(actions, "external-link", t("view.openExternally"), () =>
 				this.options.onOpenExternal?.(),
 			);
 		}
@@ -210,7 +211,7 @@ export class DeckViewer {
 		this.deck.slides.forEach((slide, i) => {
 			const item = rail.createDiv({ cls: "pptx-thumb" });
 			item.dataset.index = String(i);
-			item.setAttribute("aria-label", `Slide ${slide.index}`);
+			item.setAttribute("aria-label", t("view.slideLabel", { n: slide.index }));
 			item.createSpan({ cls: "pptx-thumb-number", text: String(slide.index) });
 			item.createDiv({ cls: "pptx-thumb-frame" });
 			item.addEventListener("click", () => this.go(i));
@@ -322,10 +323,10 @@ export class DeckViewer {
 		if (this.notesEl) {
 			const notes = this.deck.slides[index]?.notes ?? "";
 			this.notesEl.empty();
-			this.notesEl.createDiv({ cls: "pptx-notes-title", text: "Speaker notes" });
+			this.notesEl.createDiv({ cls: "pptx-notes-title", text: t("view.notesTitle") });
 			this.notesEl.createDiv({
 				cls: "pptx-notes-body",
-				text: notes || "This slide has no speaker notes.",
+				text: notes || t("view.noNotes"),
 			});
 			this.notesEl.toggleClass("is-empty", !notes);
 		}

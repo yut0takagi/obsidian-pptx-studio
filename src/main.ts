@@ -1,4 +1,5 @@
 import { Notice, Plugin, TFile, normalizePath } from "obsidian";
+import { setLanguage, t } from "./i18n";
 import { DeckCache, type LoadedDeck } from "./DeckCache";
 import { deckToMarkdown } from "./export/markdown";
 import { pngFileName, renderSlideToPng } from "./export/png";
@@ -13,6 +14,7 @@ export default class PptxViewerPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
+		setLanguage(this.settings.language);
 		this.decks = new DeckCache(this.app);
 
 		this.registerView(VIEW_TYPE_PPTX, (leaf) => new PptxView(leaf, this));
@@ -22,10 +24,7 @@ export default class PptxViewerPlugin extends Plugin {
 		try {
 			this.registerExtensions(["pptx"], VIEW_TYPE_PPTX);
 		} catch {
-			new Notice(
-				"PPTX Viewer: another plugin already handles .pptx files. Disable it to use this one.",
-				10000,
-			);
+			new Notice(t("notice.extensionTaken"), 10000);
 		}
 
 		registerPptxEmbeds(this);
@@ -41,7 +40,7 @@ export default class PptxViewerPlugin extends Plugin {
 	private registerCommands(): void {
 		this.addCommand({
 			id: "save-deck",
-			name: "Save deck",
+			name: t("palette.save"),
 			checkCallback: (checking) => {
 				const view = this.activeDeckView();
 				if (!view?.hasUnsavedChanges) return false;
@@ -52,7 +51,7 @@ export default class PptxViewerPlugin extends Plugin {
 
 		this.addCommand({
 			id: "export-slide-png",
-			name: "Export current slide as PNG",
+			name: t("palette.exportPng"),
 			checkCallback: (checking) => {
 				const view = this.activeDeckView();
 				if (!view?.file) return false;
@@ -63,7 +62,7 @@ export default class PptxViewerPlugin extends Plugin {
 
 		this.addCommand({
 			id: "extract-markdown",
-			name: "Extract deck text to a Markdown note",
+			name: t("palette.extract"),
 			checkCallback: (checking) => {
 				const file = this.targetDeckFile();
 				if (!file) return false;
@@ -71,7 +70,9 @@ export default class PptxViewerPlugin extends Plugin {
 					void this.decks
 						.get(file)
 						.then((loaded) => this.extractMarkdown(loaded, file))
-						.catch((error) => new Notice(`Could not read the deck: ${error.message}`));
+						.catch(
+							(error) => new Notice(t("notice.readFailed", { message: error.message })),
+						);
 				}
 				return true;
 			},
@@ -79,7 +80,7 @@ export default class PptxViewerPlugin extends Plugin {
 
 		this.addCommand({
 			id: "open-externally",
-			name: "Open deck in the default app",
+			name: t("palette.openExternally"),
 			checkCallback: (checking) => {
 				const file = this.targetDeckFile();
 				if (!file) return false;
@@ -147,9 +148,9 @@ export default class PptxViewerPlugin extends Plugin {
 			const name = pngFileName(file?.basename ?? loaded.deck.title, slideNumber);
 			const path = await this.resolveExportPath(name, file?.path ?? "");
 			await this.app.vault.createBinary(path, png);
-			new Notice(`Exported ${path}`);
+			new Notice(t("notice.exported", { path }));
 		} catch (error) {
-			new Notice(`Could not export the slide: ${(error as Error).message}`, 8000);
+			new Notice(t("notice.exportFailed", { message: (error as Error).message }), 8000);
 		}
 	}
 
@@ -166,7 +167,7 @@ export default class PptxViewerPlugin extends Plugin {
 			const created = await this.app.vault.create(path, markdown);
 			await this.app.workspace.getLeaf("tab").openFile(created);
 		} catch (error) {
-			new Notice(`Could not create the note: ${(error as Error).message}`, 8000);
+			new Notice(t("notice.noteFailed", { message: (error as Error).message }), 8000);
 		}
 	}
 
@@ -177,7 +178,7 @@ export default class PptxViewerPlugin extends Plugin {
 			opener.openWithDefaultApp(file.path);
 			return;
 		}
-		new Notice("This build of Obsidian cannot open files in an external app.");
+		new Notice(t("notice.noExternalApp"));
 	}
 
 	// --------------------------------------------------------------- paths
@@ -224,6 +225,18 @@ export default class PptxViewerPlugin extends Plugin {
 	}
 
 	async saveSettings(): Promise<void> {
+		setLanguage(this.settings.language);
 		await this.saveData(this.settings);
+	}
+
+	/**
+	 * Re-open every deck view. The ribbon's labels are built once, so a language
+	 * change has to rebuild them rather than waiting for the next file open.
+	 */
+	refreshViews(): void {
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_PPTX)) {
+			const view = leaf.view;
+			if (view instanceof PptxView && view.file) void view.onLoadFile(view.file);
+		}
 	}
 }

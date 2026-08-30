@@ -1,4 +1,8 @@
+import type { LanguageSetting } from "./i18n";
+
 export interface PptxViewerSettings {
+	/** Interface language; "auto" follows Obsidian's own setting. */
+	language: LanguageSetting;
 	/** Show the slide thumbnail rail in the deck view. */
 	showThumbnails: boolean;
 	/** Show the speaker-notes pane in the deck view. */
@@ -20,6 +24,7 @@ export interface PptxViewerSettings {
 }
 
 export const DEFAULT_SETTINGS: PptxViewerSettings = {
+	language: "auto",
 	showThumbnails: true,
 	showNotes: false,
 	fitMode: "page",

@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import type { Deck, Paragraph, Shape, Slide, TextBody } from "../pptx/types";
 
 export interface MarkdownOptions {
@@ -15,7 +16,7 @@ export function deckToMarkdown(deck: Deck, options: MarkdownOptions): string {
 	const out: string[] = [];
 	out.push(`# ${deck.title}`, "");
 	if (options.includeSourceLink && options.sourcePath) {
-		out.push(`Source: [[${options.sourcePath}]]`, "");
+		out.push(`[[${options.sourcePath}]]`, "");
 	}
 
 	for (const slide of deck.slides) {
@@ -30,7 +31,7 @@ function slideToMarkdown(slide: Slide, options: MarkdownOptions): string[] {
 	const own = slide.shapes.slice(slide.templateShapes);
 	const { text: title, shape: titleShape } = findTitle(own);
 	const out: string[] = [];
-	out.push(`## Slide ${slide.index}${title ? ` — ${title}` : ""}`, "");
+	out.push(`## ${t("view.slideLabel", { n: slide.index })}${title ? ` — ${title}` : ""}`, "");
 
 	for (const shape of own) {
 		if (shape === titleShape) continue;
@@ -38,7 +39,7 @@ function slideToMarkdown(slide: Slide, options: MarkdownOptions): string[] {
 	}
 
 	if (options.includeNotes && slide.notes) {
-		out.push("> [!note] Speaker notes");
+		out.push(`> [!note] ${t("view.notesTitle")}`);
 		for (const line of slide.notes.split("\n")) {
 			out.push(`> ${line}`);
 		}

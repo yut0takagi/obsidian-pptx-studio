@@ -39,6 +39,12 @@ alongside it.
   searchable, linkable and shows up in backlinks.
 - **Export slides as PNG** — at 1×, 2× or 3×.
 
+## Language
+
+The interface follows Obsidian's own display language, so a Japanese vault gets a
+Japanese ribbon with nothing to configure. Settings → PPTX Viewer → Language can
+pin it to English or Japanese instead.
+
 ## Keyboard
 
 | | |
