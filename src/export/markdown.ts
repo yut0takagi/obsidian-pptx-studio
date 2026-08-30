@@ -77,12 +77,8 @@ function shapeToMarkdown(shape: Shape, title: string): string[] {
 		}
 		case "table":
 			return tableToMarkdown(shape.table);
-		case "chart": {
-			const parts = [`**${shape.title || `${shape.chartType} chart`}**`];
-			if (shape.series.length) parts.push(`Series: ${shape.series.join(", ")}`);
-			if (shape.categories.length) parts.push(`Categories: ${shape.categories.join(", ")}`);
-			return [...parts, ""];
-		}
+		case "chart":
+			return chartToMarkdown(shape.chart);
 		case "group":
 			return shape.children.flatMap((kid) => shapeToMarkdown(kid, title));
 		case "image":
@@ -90,6 +86,33 @@ function shapeToMarkdown(shape: Shape, title: string): string[] {
 		case "line":
 			return [];
 	}
+}
+
+/**
+ * A chart becomes its own data table.
+ *
+ * The point of extraction is search and linking, and the numbers behind a chart
+ * are exactly what someone would want to find later — a picture of them is not.
+ */
+function chartToMarkdown(chart: import("../pptx/chart").ChartModel): string[] {
+	const heading = chart.title ? `**${chart.title}**` : "";
+	if (chart.series.length === 0) return heading ? [heading, ""] : [];
+
+	const header = ["", ...chart.series.map((series) => series.name)];
+	const out = [
+		...(heading ? [heading, ""] : []),
+		`| ${header.join(" | ")} |`,
+		`| ${header.map(() => "---").join(" | ")} |`,
+	];
+	chart.categories.forEach((category, i) => {
+		const cells = chart.series.map((series) => {
+			const value = series.values[i];
+			return value === null || value === undefined ? "" : String(value);
+		});
+		out.push(`| ${[category, ...cells].join(" | ")} |`);
+	});
+	out.push("");
+	return out;
 }
 
 function tableToMarkdown(table: import("../pptx/types").Table): string[] {
@@ -134,7 +157,11 @@ export function slideSearchText(slide: Slide): string {
 			case "table":
 				return shape.table.rows.flatMap((r) => r.cells.flatMap((c) => bodyToLines(c.text)));
 			case "chart":
-				return [shape.title, ...shape.series, ...shape.categories];
+				return [
+					shape.chart.title,
+					...shape.chart.series.map((series) => series.name),
+					...shape.chart.categories,
+				];
 			case "group":
 				return shape.children.flatMap(collect);
 			default:

@@ -1,3 +1,5 @@
+import type { ChartModel } from "./chart";
+
 /** The renderer-facing model. Parsing turns OOXML into these; rendering only reads these. */
 
 export interface Deck {
@@ -179,10 +181,7 @@ export interface TableShape extends ShapeBase {
 
 export interface ChartShape extends ShapeBase {
 	kind: "chart";
-	chartType: string;
-	title: string;
-	series: string[];
-	categories: string[];
+	chart: ChartModel;
 }
 
 export interface GroupShape extends ShapeBase {

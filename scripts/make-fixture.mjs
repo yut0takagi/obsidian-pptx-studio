@@ -189,6 +189,116 @@ function table({ name, x, y, w, h, columns, rows }) {
 	);
 }
 
+/** A graphic frame pointing at a chart part. */
+function chartFrame({ name, x, y, w, h, embed }) {
+	return (
+		`<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${id()}" name="${esc(name)}"/>` +
+		`<p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>` +
+		`<p:xfrm><a:off x="${px(x)}" y="${px(y)}"/><a:ext cx="${px(w)}" cy="${px(h)}"/></p:xfrm>` +
+		`<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">` +
+		`<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" ` +
+		`xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="${embed}"/>` +
+		"</a:graphicData></a:graphic></p:graphicFrame>"
+	);
+}
+
+const C_NS =
+	'xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" ' +
+	'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
+	'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+
+function strCache(values) {
+	const points = values
+		.map((v, i) => `<c:pt idx="${i}"><c:v>${esc(v)}</c:v></c:pt>`)
+		.join("");
+	return `<c:strCache><c:ptCount val="${values.length}"/>${points}</c:strCache>`;
+}
+
+function numCache(values) {
+	const points = values.map((v, i) => `<c:pt idx="${i}"><c:v>${v}</c:v></c:pt>`).join("");
+	return `<c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="${values.length}"/>${points}</c:numCache>`;
+}
+
+function series(index, name, categories, values) {
+	return (
+		`<c:ser><c:idx val="${index}"/><c:order val="${index}"/>` +
+		`<c:tx><c:strRef><c:f>Sheet1!$${String.fromCharCode(66 + index)}$1</c:f>` +
+		`${strCache([name])}</c:strRef></c:tx>` +
+		`<c:cat><c:strRef><c:f>Sheet1!$A$2:$A$${categories.length + 1}</c:f>` +
+		`${strCache(categories)}</c:strRef></c:cat>` +
+		`<c:val><c:numRef><c:f>Sheet1!$${String.fromCharCode(66 + index)}$2</c:f>` +
+		`${numCache(values)}</c:numRef></c:val></c:ser>`
+	);
+}
+
+function chartTitle(text) {
+	return (
+		"<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r>" +
+		`<a:rPr lang="en-US" sz="1200" b="1"/><a:t>${esc(text)}</a:t>` +
+		"</a:r></a:p></c:rich></c:tx><c:overlay val=\"0\"/></c:title><c:autoTitleDeleted val=\"0\"/>"
+	);
+}
+
+/** A bar or column chart; `grouping` covers clustered and stacked. */
+function columnChartXml(title, categories, seriesList, { dir = "col", grouping = "clustered" } = {}) {
+	const body = seriesList.map((s, i) => series(i, s.name, categories, s.values)).join("");
+	return (
+		`${DECL}<c:chartSpace ${C_NS}><c:chart>${chartTitle(title)}<c:plotArea><c:layout/>` +
+		`<c:barChart><c:barDir val="${dir}"/><c:grouping val="${grouping}"/><c:varyColors val="0"/>` +
+		body +
+		`<c:overlap val="${grouping === "clustered" ? -27 : 100}"/>` +
+		'<c:gapWidth val="150"/><c:axId val="111111111"/><c:axId val="222222222"/></c:barChart>' +
+		'<c:catAx><c:axId val="111111111"/><c:scaling><c:orientation val="minMax"/></c:scaling>' +
+		'<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222222222"/></c:catAx>' +
+		'<c:valAx><c:axId val="222222222"/><c:scaling><c:orientation val="minMax"/></c:scaling>' +
+		'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111111111"/></c:valAx>' +
+		'</c:plotArea><c:legend><c:legendPos val="b"/><c:overlay val="0"/></c:legend>' +
+		'<c:plotVisOnly val="1"/></c:chart></c:chartSpace>'
+	);
+}
+
+/** A line chart, with a gap in one series to exercise sparse data. */
+function lineChartXml(title, categories, seriesList) {
+	const body = seriesList.map((s, i) => series(i, s.name, categories, s.values)).join("");
+	return (
+		`${DECL}<c:chartSpace ${C_NS}><c:chart>${chartTitle(title)}<c:plotArea><c:layout/>` +
+		'<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>' +
+		body +
+		'<c:marker val="1"/><c:axId val="111111111"/><c:axId val="222222222"/></c:lineChart>' +
+		'<c:catAx><c:axId val="111111111"/><c:scaling><c:orientation val="minMax"/></c:scaling>' +
+		'<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222222222"/></c:catAx>' +
+		'<c:valAx><c:axId val="222222222"/><c:scaling><c:orientation val="minMax"/></c:scaling>' +
+		'<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="111111111"/></c:valAx>' +
+		'</c:plotArea><c:legend><c:legendPos val="b"/><c:overlay val="0"/></c:legend>' +
+		'<c:plotVisOnly val="1"/></c:chart></c:chartSpace>'
+	);
+}
+
+/** A pie chart, which has no axes and colours its points individually. */
+function pieChartXml(title, categories, values, hole = 0) {
+	const points = categories
+		.map(
+			(_, i) =>
+				`<c:dPt><c:idx val="${i}"/><c:bubble3D val="0"/><c:spPr>` +
+				`<a:solidFill><a:schemeClr val="accent${(i % 6) + 1}"/></a:solidFill>` +
+				"</c:spPr></c:dPt>",
+		)
+		.join("");
+	return (
+		`${DECL}<c:chartSpace ${C_NS}><c:chart>${chartTitle(title)}<c:plotArea><c:layout/>` +
+		`<c:${hole ? "doughnut" : "pie"}Chart><c:varyColors val="1"/>` +
+		'<c:ser><c:idx val="0"/><c:order val="0"/>' +
+		`<c:tx><c:strRef><c:f>Sheet1!$B$1</c:f>${strCache(["Share"])}</c:strRef></c:tx>` +
+		points +
+		`<c:cat><c:strRef><c:f>Sheet1!$A$2</c:f>${strCache(categories)}</c:strRef></c:cat>` +
+		`<c:val><c:numRef><c:f>Sheet1!$B$2</c:f>${numCache(values)}</c:numRef></c:val></c:ser>` +
+		`<c:firstSliceAng val="0"/>${hole ? `<c:holeSize val="${hole}"/>` : ""}` +
+		`</c:${hole ? "doughnut" : "pie"}Chart></c:plotArea>` +
+		'<c:legend><c:legendPos val="r"/><c:overlay val="0"/></c:legend>' +
+		'<c:plotVisOnly val="1"/></c:chart></c:chartSpace>'
+	);
+}
+
 function spTree(shapes) {
 	return (
 		`<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
@@ -678,6 +788,74 @@ const slide6 = slideXml([
 	}),
 ]);
 
+const slide7 = slideXml([
+	shape({
+		name: "Title",
+		ph: { type: "title" },
+		text: { anchor: "b", paragraphs: [{ runs: [{ t: "Charts" }] }] },
+	}),
+	chartFrame({ name: "Column chart", x: 80, y: 170, w: 560, h: 340, embed: "rId2" }),
+	chartFrame({ name: "Pie chart", x: 680, y: 170, w: 520, h: 340, embed: "rId3" }),
+	shape({
+		name: "Caption",
+		x: 80,
+		y: 530,
+		w: 1120,
+		h: 40,
+		fill: "none",
+		text: {
+			paragraphs: [
+				{
+					bullet: "none",
+					runs: [
+						{
+							t: "Both are drawn from the values cached in the chart part — no workbook needed.",
+							sz: 15,
+							color: "6B7B8C",
+							i: true,
+						},
+					],
+				},
+			],
+		},
+	}),
+]);
+
+const slide8 = slideXml([
+	shape({
+		name: "Title",
+		ph: { type: "title" },
+		text: { anchor: "b", paragraphs: [{ runs: [{ t: "More chart types" }] }] },
+	}),
+	chartFrame({ name: "Line chart", x: 80, y: 170, w: 540, h: 330, embed: "rId2" }),
+	chartFrame({ name: "Stacked bar", x: 660, y: 170, w: 540, h: 330, embed: "rId3" }),
+	chartFrame({ name: "Doughnut", x: 80, y: 520, w: 300, h: 150, embed: "rId4" }),
+	shape({
+		name: "Caption",
+		x: 420,
+		y: 560,
+		w: 780,
+		h: 60,
+		fill: "none",
+		text: {
+			anchor: "ctr",
+			paragraphs: [
+				{
+					bullet: "none",
+					runs: [
+						{
+							t: "A line with a gap in the data, a horizontal stacked bar, and a doughnut.",
+							sz: 15,
+							color: "6B7B8C",
+							i: true,
+						},
+					],
+				},
+			],
+		},
+	}),
+]);
+
 // ------------------------------------------------------------------ package
 
 const image = encodePng(480, 300, (x, y) => {
@@ -692,7 +870,7 @@ const image = encodePng(480, 300, (x, y) => {
 });
 
 const REL = "officeDocument/2006/relationships";
-const slides = [slide1, slide2, slide3, slide4, slide5, slide6];
+const slides = [slide1, slide2, slide3, slide4, slide5, slide6, slide7, slide8];
 
 const files = {
 	"[Content_Types].xml":
@@ -712,6 +890,11 @@ const files = {
 			.join("") +
 		'<Override PartName="/ppt/notesMasters/notesMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"/>' +
 		'<Override PartName="/ppt/notesSlides/notesSlide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>' +
+		'<Override PartName="/ppt/charts/chart1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>' +
+		'<Override PartName="/ppt/charts/chart2.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>' +
+		'<Override PartName="/ppt/charts/chart3.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>' +
+		'<Override PartName="/ppt/charts/chart4.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>' +
+		'<Override PartName="/ppt/charts/chart5.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>' +
 		'<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>' +
 		'<Override PartName="/ppt/theme/theme2.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>' +
 		'<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
@@ -788,6 +971,41 @@ const files = {
 		{ id: "rId2", type: `${REL}/slide`, target: "../slides/slide6.xml" },
 	]),
 
+	"ppt/charts/chart1.xml": columnChartXml(
+		"Quarterly revenue",
+		["Q1", "Q2", "Q3", "Q4"],
+		[
+			{ name: "2024", values: [32, 41, 38, 55] },
+			{ name: "2025", values: [45, 39, 52, 68] },
+		],
+	),
+	"ppt/charts/chart2.xml": pieChartXml(
+		"Where the time goes",
+		["Parsing", "Rendering", "Editing", "Saving"],
+		[42, 27, 21, 10],
+	),
+
+	"ppt/charts/chart3.xml": lineChartXml(
+		"Weekly active users",
+		["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+		[
+			{ name: "This week", values: [120, 138, 131, 152, 166, 90, 74] },
+			// A blank value leaves a real gap rather than dropping to zero.
+			{ name: "Last week", values: [104, 119, "", 133, 141, 82, 69] },
+		],
+	),
+	"ppt/charts/chart4.xml": columnChartXml(
+		"Effort by area",
+		["Parser", "Renderer", "Editor"],
+		[
+			{ name: "Design", values: [12, 8, 14] },
+			{ name: "Build", values: [30, 26, 41] },
+			{ name: "Test", values: [9, 11, 16] },
+		],
+		{ dir: "bar", grouping: "stacked" },
+	),
+	"ppt/charts/chart5.xml": pieChartXml("Coverage", ["Done", "Left"], [78, 22], 55),
+
 	"ppt/theme/theme1.xml": THEME,
 	"ppt/theme/theme2.xml": THEME,
 	"ppt/media/image1.png": new Uint8Array(image),
@@ -799,6 +1017,15 @@ slides.forEach((xml, i) => {
 	const layout = n === 1 ? "slideLayout1.xml" : "slideLayout2.xml";
 	const entries = [{ id: "rId1", type: `${REL}/slideLayout`, target: `../slideLayouts/${layout}` }];
 	if (n === 5) entries.push({ id: "rId2", type: `${REL}/image`, target: "../media/image1.png" });
+	if (n === 8) {
+		entries.push({ id: "rId2", type: `${REL}/chart`, target: "../charts/chart3.xml" });
+		entries.push({ id: "rId3", type: `${REL}/chart`, target: "../charts/chart4.xml" });
+		entries.push({ id: "rId4", type: `${REL}/chart`, target: "../charts/chart5.xml" });
+	}
+	if (n === 7) {
+		entries.push({ id: "rId2", type: `${REL}/chart`, target: "../charts/chart1.xml" });
+		entries.push({ id: "rId3", type: `${REL}/chart`, target: "../charts/chart2.xml" });
+	}
 	if (n === 6) {
 		entries.push({ id: "rId2", type: `${REL}/hyperlink`, target: "https://obsidian.md", external: true });
 		entries.push({ id: "rId3", type: `${REL}/notesSlide`, target: "../notesSlides/notesSlide1.xml" });

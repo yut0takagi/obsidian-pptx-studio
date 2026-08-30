@@ -1,3 +1,4 @@
+import { emptyChart, parseChartPart } from "./chart";
 import { resolveFillColor } from "./color";
 import { EMPTY_FRAME, geometryName, isLineGeometry, parseChildFrame, parseFrame } from "./geometry";
 import type { ParseContext } from "./style";
@@ -14,7 +15,7 @@ import type { StyleChain } from "./text";
 import { parseTextBody } from "./text";
 import type { Fill, Frame, Shape, Table, TableCell, TextBody } from "./types";
 import { emuToPx } from "./types";
-import { attr, boolAttr, child, children, descendant, numAttr } from "./xml";
+import { attr, boolAttr, child, children, numAttr } from "./xml";
 
 /** A placeholder inherited from a layout or master, with the part it came from. */
 export interface InheritedShape {
@@ -346,7 +347,12 @@ function parseGraphicFrame(el: Element, ctx: ParseContext): Shape | null {
 	}
 
 	if (uri.endsWith(URI_CHART)) {
-		return { kind: "chart", ...base, ...parseChart(data, ctx) };
+		const path = ctx.pkg.relTarget(ctx.partPath, attr(child(data, "chart"), "id"));
+		return {
+			kind: "chart",
+			...base,
+			chart: path ? parseChartPart(ctx.pkg, path, ctx) : emptyChart(),
+		};
 	}
 
 	if (uri.endsWith(URI_DIAGRAM)) {
@@ -430,66 +436,6 @@ function wrapLine(tcPr: Element | null, name: string): Element | null {
 	while (clone.firstChild) renamed.appendChild(clone.firstChild);
 	holder.appendChild(renamed);
 	return holder;
-}
-
-function parseChart(
-	data: Element,
-	ctx: ParseContext,
-): { chartType: string; title: string; series: string[]; categories: string[] } {
-	const empty = { chartType: "chart", title: "", series: [], categories: [] };
-	const ref = child(data, "chart");
-	const path = ctx.pkg.relTarget(ctx.partPath, attr(ref, "id"));
-	if (!path) return empty;
-	const doc = ctx.pkg.xml(path);
-	if (!doc?.documentElement) return empty;
-
-	const plotArea = descendant(doc.documentElement, "plotArea");
-	let chartType = "chart";
-	if (plotArea) {
-		for (let n = plotArea.firstElementChild; n; n = n.nextElementSibling) {
-			if (n.localName.endsWith("Chart")) {
-				chartType = n.localName.replace(/Chart$/, "");
-				break;
-			}
-		}
-	}
-
-	const titleEl = descendant(doc.documentElement, "title");
-	const title = titleEl
-		? children(descendant(titleEl, "rich") ?? titleEl, "p")
-				.map((p) => p.textContent ?? "")
-				.join(" ")
-				.trim() || (descendant(titleEl, "strRef")?.textContent ?? "").trim()
-		: "";
-
-	const series: string[] = [];
-	const categories: string[] = [];
-	for (const ser of plotArea ? descendants(plotArea, "ser") : []) {
-		const name = descendant(child(ser, "tx"), "strCache")?.textContent?.trim();
-		series.push(name || `Series ${series.length + 1}`);
-		if (categories.length === 0) {
-			const cat = child(ser, "cat");
-			const cache = descendant(cat, "strCache") ?? descendant(cat, "numCache");
-			for (const pt of cache ? children(cache, "pt") : []) {
-				const v = child(pt, "v")?.textContent?.trim();
-				if (v) categories.push(v);
-			}
-		}
-	}
-
-	return { chartType, title, series, categories };
-}
-
-function descendants(el: Element, localName: string): Element[] {
-	const out: Element[] = [];
-	const walk = (node: Element) => {
-		for (let n = node.firstElementChild; n; n = n.nextElementSibling) {
-			if (n.localName === localName) out.push(n);
-			walk(n);
-		}
-	};
-	walk(el);
-	return out;
 }
 
 function parseDiagram(

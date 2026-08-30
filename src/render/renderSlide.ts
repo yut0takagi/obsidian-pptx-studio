@@ -1,4 +1,5 @@
 import { geometryCss } from "../pptx/geometry";
+import { renderChart } from "./renderChart";
 import { t } from "../i18n";
 import type {
 	ChartShape,
@@ -98,7 +99,7 @@ function renderShape(shape: Shape): HTMLElement | null {
 		case "table":
 			return renderTable(shape);
 		case "chart":
-			return renderChart(shape);
+			return renderChartShape(shape);
 		case "group":
 			return renderGroup(shape);
 		case "line":
@@ -422,37 +423,10 @@ function renderTable(shape: TableShape): HTMLElement {
 	return el;
 }
 
-function renderChart(shape: ChartShape): HTMLElement {
+function renderChartShape(shape: ChartShape): HTMLElement {
 	const el = positioned(shape.frame, "pptx-chart");
-	Object.assign(el.style, {
-		display: "flex",
-		flexDirection: "column",
-		gap: "6px",
-		padding: "10px",
-		background: "rgba(0,0,0,0.03)",
-		border: "1px dashed rgba(0,0,0,0.2)",
-		borderRadius: "4px",
-		overflow: "hidden",
-		fontSize: "13px",
-		color: "rgba(0,0,0,0.65)",
-	});
-
-	const title = document.createElement("div");
-	title.setText(shape.title || `${shape.chartType} chart`);
-	Object.assign(title.style, { fontWeight: "600", fontSize: "15px", color: "rgba(0,0,0,0.8)" });
-	el.appendChild(title);
-
-	if (shape.series.length) {
-		const list = document.createElement("div");
-		list.setText(shape.series.join(" · "));
-		el.appendChild(list);
-	}
-	if (shape.categories.length) {
-		const cats = document.createElement("div");
-		cats.setText(shape.categories.slice(0, 8).join(", "));
-		cats.style.opacity = "0.75";
-		el.appendChild(cats);
-	}
+	el.style.overflow = "hidden";
+	el.appendChild(renderChart(shape));
 	return el;
 }
 

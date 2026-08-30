@@ -82,9 +82,17 @@ The parser covers what real decks actually use: theme colour schemes and the
 `lumMod`/`lumOff`/`tint`/`shade` transforms, placeholder inheritance from slide
 to layout to master, list styles and auto-numbered bullets, gradients, images
 with cropping, tables with merged cells, groups, connectors, and SmartArt (via
-the plain-shapes fallback drawing PowerPoint stores alongside it). Charts render
-as a labelled placeholder listing their series and categories rather than being
-plotted.
+the plain-shapes fallback drawing PowerPoint stores alongside it).
+
+**Charts** are drawn as SVG — column, bar, stacked and percent-stacked, line,
+area, pie, doughnut and scatter — from the values every chart part caches
+alongside its embedded workbook. That cache is what the deck was showing when it
+was saved, so no spreadsheet has to be opened to plot it. Series take their
+colours from the deck's theme accents unless the chart names its own, and a
+missing value stays a gap in the line rather than becoming a zero.
+
+Extracting a deck to Markdown turns each chart into its own data table, since
+the numbers behind a chart are what someone would want to search for later.
 
 ## Editing and safety
 

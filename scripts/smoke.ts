@@ -290,6 +290,75 @@ function checkParagraphDelete(path: string): void {
 	}
 }
 
+/**
+ * Charts must come back with their cached numbers intact and render to real SVG.
+ *
+ * macOS Quick Look draws nothing at all for a chart, so there is no external
+ * renderer to compare against here — the values and the emitted geometry are the
+ * check.
+ */
+function checkCharts(path: string): void {
+	const name = basename(path);
+	const { deck, pkg } = parseDeck(readFileSync(path), name);
+	try {
+		const charts = deck.slides.flatMap((slide) =>
+			slide.shapes.filter((shape): shape is Extract<Shape, { kind: "chart" }> => shape.kind === "chart"),
+		);
+		if (charts.length === 0) {
+			console.log("    skipped: no charts in this deck");
+			return;
+		}
+
+		for (const shape of charts) {
+			const chart = shape.chart;
+			const points = chart.series.reduce(
+				(total, series) => total + series.values.filter((v) => v !== null).length,
+				0,
+			);
+			console.log(
+				`    ${chart.kind}: ${chart.series.length} series x ${chart.categories.length} categories ` +
+					`(${points} points)${chart.title ? ` "${chart.title}"` : ""}`,
+			);
+			if (chart.empty) fail(`chart "${chart.title}" parsed as empty`);
+			else if (points === 0) fail(`chart "${chart.title}" has no values`);
+		}
+
+		// The fixture's own chart, checked value by value.
+		const column = charts.find((c) => c.chart.kind === "column");
+		if (column) {
+			const expected = [
+				{ name: "2024", values: [32, 41, 38, 55] },
+				{ name: "2025", values: [45, 39, 52, 68] },
+			];
+			const actual = column.chart.series.map((s) => ({ name: s.name, values: s.values }));
+			if (JSON.stringify(actual) === JSON.stringify(expected)) {
+				pass("column chart values round-tripped exactly");
+			} else {
+				fail(`column chart values came back as ${JSON.stringify(actual)}`);
+			}
+			if (column.chart.categories.join(",") !== "Q1,Q2,Q3,Q4") {
+				fail(`column chart categories came back as ${column.chart.categories.join(",")}`);
+			} else pass("column chart categories round-tripped");
+		}
+
+		// Rendering must emit real geometry, not just a label.
+		const slide = deck.slides.find((s) => s.shapes.some((sh) => sh.kind === "chart"));
+		if (slide) {
+			const el = renderSlide(deck, slide);
+			const bars = el.querySelectorAll("rect").length;
+			const wedges = el.querySelectorAll("path").length;
+			const labels = el.querySelectorAll("text").length;
+			if (bars > 0 && wedges > 0 && labels > 0) {
+				pass(`rendered ${bars} bars, ${wedges} wedges and ${labels} labels`);
+			} else {
+				fail(`chart rendering produced ${bars} bars, ${wedges} wedges, ${labels} labels`);
+			}
+		}
+	} finally {
+		pkg.dispose();
+	}
+}
+
 /** Move and resize shapes through the same call the drag handler makes. */
 function checkGeometryEdit(path: string): void {
 	const name = basename(path);
@@ -767,12 +836,35 @@ if (files.length === 0) {
 	process.exit(2);
 }
 
+// PPTX_SMOKE_HTML dumps a rendered slide as standalone HTML, so the renderer's
+// output can be eyeballed against a real PowerPoint consumer.
+const dumpPath = process.env.PPTX_SMOKE_HTML;
+if (dumpPath) {
+	const index = Number(process.env.PPTX_SMOKE_SLIDE ?? 1) - 1;
+	const { deck, pkg } = parseDeck(readFileSync(files[0]), basename(files[0]));
+	const slide = deck.slides[index];
+	if (slide) {
+		const el = renderSlide(deck, slide);
+		writeFileSync(
+			dumpPath,
+			`<!doctype html><meta charset="utf-8"><body style="margin:0;background:#fff">` +
+				`<div style="width:${deck.width}px;height:${deck.height}px">${el.outerHTML}</div>`,
+		);
+		console.log(`Wrote slide ${index + 1} to ${dumpPath}`);
+	}
+	pkg.dispose();
+	process.exit(0);
+}
+
 console.log(`Parsing and rendering ${files.length} deck(s)\n`);
 for (const file of files) checkDeck(file);
 
 console.log(`\nEditing ${basename(files[0])} through the rendered DOM:`);
 checkRunEdit(files[0]);
 checkParagraphDelete(files[0]);
+
+console.log(`\nCharts in ${basename(files[0])}:`);
+checkCharts(files[0]);
 
 console.log(`\nMoving and resizing shapes in ${basename(files[0])}:`);
 checkGeometryEdit(files[0]);
