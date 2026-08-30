@@ -31,6 +31,13 @@ alongside it.
   delete rows and columns, merge and split cells, and fill them.
 - **Slides** — add from any layout, duplicate, delete, and reorder by dragging a
   thumbnail. Set a slide's background colour.
+- **Rulers and guides** — drag a guide out of a ruler, drag it to move, drag it
+  off the slide to remove it. Shapes snap to guides. They are stored in the deck
+  the way PowerPoint stores them, so they appear there too.
+- **Crop pictures** — the source shows through dimmed while you drag the crop
+  handles, and "reset" restores the whole image.
+- **Selection pane** — every shape on the slide in stacking order: click to
+  select, rename, hide, restack. For the shapes direct manipulation cannot reach.
 - **Also** — hyperlinks, format painter, change a shape's preset, rotate and flip
   by 90°, and numeric position, size and rotation fields.
 - **Embed slides in notes** — `![[deck.pptx]]` embeds the deck, `![[deck.pptx#3]]`

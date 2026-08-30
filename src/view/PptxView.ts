@@ -3,6 +3,8 @@ import type { LoadedDeck } from "../DeckCache";
 import { DeckEditor } from "../edit/DeckEditor";
 import { EditController } from "../edit/EditController";
 import { Selection } from "../edit/Selection";
+import { CropController } from "../edit/CropController";
+import { GuideController } from "../edit/GuideController";
 import { ShapeEditor } from "../edit/ShapeEditor";
 import {
 	type CommandContext,
@@ -31,6 +33,7 @@ import {
 import { rebuildDeck } from "../pptx/parse";
 import { DeckViewer } from "../render/DeckViewer";
 import { Ribbon } from "../ui/Ribbon";
+import { SelectionPane } from "../ui/SelectionPane";
 import {
 	ImagePickerModal,
 	LayoutPickerModal,
@@ -50,6 +53,11 @@ export class PptxView extends FileView {
 	private ribbon: Ribbon | null = null;
 	private editController: EditController | null = null;
 	private shapeEditor: ShapeEditor | null = null;
+	private guides: GuideController | null = null;
+	private crop: CropController | null = null;
+	private showRulers = true;
+	private showSelectionPane = false;
+	private selectionPane: SelectionPane | null = null;
 	private deckEditor: DeckEditor | null = null;
 	private readonly selection = new Selection();
 	private readonly tableSelection = new TableSelection();
@@ -67,6 +75,7 @@ export class PptxView extends FileView {
 		this.selection.onChange(() => {
 			this.tableSelection.retain(this.selection.ids);
 			this.ribbon?.update();
+			this.selectionPane?.refresh();
 		});
 		this.tableSelection.onChange(() => {
 			this.tableSelection.paint(this.activeSlideEl);
@@ -146,6 +155,20 @@ export class PptxView extends FileView {
 				),
 		});
 
+		this.guides = new GuideController({
+			pkg: loaded.pkg,
+			editor: this.deckEditor,
+			getScale: () => this.viewer?.currentScale() ?? 1,
+			getSlideSize: () => ({ width: loaded.deck.width, height: loaded.deck.height }),
+			isEnabled: () => !this.editController?.isEditing,
+		});
+
+		this.crop = new CropController({
+			getContext: () => this.context(),
+			getScale: () => this.viewer?.currentScale() ?? 1,
+			onChanged: () => this.ribbon?.update(),
+		});
+
 		this.shapeEditor = new ShapeEditor({
 			selection: this.selection,
 			editor: this.deckEditor,
@@ -157,6 +180,10 @@ export class PptxView extends FileView {
 			onContextMenu: (event) => this.showContextMenu(event),
 			onCellPointerDown: (shape, row, column, additive) =>
 				this.tableSelection.select(shape.id, row, column, additive),
+			extraGuides: () => this.guides?.snapTargets() ?? { xs: [], ys: [] },
+			// Cropping owns the pointer while it is on, then guides, then shapes.
+			claimPointer: (event) =>
+				(this.crop?.tryGrab(event) ?? false) || (this.guides?.tryGrab(event) ?? false),
 		});
 
 		this.ribbon = new Ribbon(this.contentEl, buildTabs(this.ribbonHost()));
@@ -184,9 +211,15 @@ export class PptxView extends FileView {
 				this.selection.clear();
 				this.tableSelection.clear();
 			},
+			showRulers: this.showRulers,
+			sidePane: this.showSelectionPane,
+			onRulerDrag: (orientation, position, event) =>
+				this.guides?.beginFromRuler(event, orientation, position),
 			onRendered: (slideEl) => {
 				this.activeSlideEl = slideEl;
 				this.tableSelection.paint(slideEl);
+				this.guides?.setActive(slideEl);
+				this.crop?.setActive(slideEl);
 			},
 			onReorder: (from, to) => {
 				this.run((ctx) => reorderSlide(ctx, from, to));
@@ -195,6 +228,15 @@ export class PptxView extends FileView {
 		});
 		if (slideNumber > 1) this.viewer.go(slideNumber - 1);
 		this.viewer.setDirty(loaded.pkg.isDirty);
+
+		const host = this.viewer.sidePane;
+		this.selectionPane = host
+			? new SelectionPane(host, {
+					getContext: () => this.context(),
+					selection: this.selection,
+					run: (fn) => this.run(fn),
+				})
+			: null;
 	}
 
 	/** Rebuild the model and repaint after an edit. */
@@ -211,9 +253,11 @@ export class PptxView extends FileView {
 			this.tableSelection.retain(this.selection.ids);
 			this.shapeEditor?.refresh();
 			this.tableSelection.paint(this.activeSlideEl);
+			this.guides?.reload();
 		}
 		this.viewer?.setDirty(true);
 		this.ribbon?.update();
+		this.selectionPane?.refresh();
 	}
 
 	private context(): CommandContext | null {
@@ -272,6 +316,23 @@ export class PptxView extends FileView {
 				this.showThumbnails = !this.showThumbnails;
 				this.rebuildViewer();
 			},
+			toggleSelectionPane: () => {
+				this.showSelectionPane = !this.showSelectionPane;
+				this.rebuildViewer();
+			},
+			selectionPaneShown: () => this.showSelectionPane,
+			toggleRulers: () => {
+				this.showRulers = !this.showRulers;
+				this.rebuildViewer();
+			},
+			rulersShown: () => this.showRulers,
+			addGuide: (orientation) => this.guides?.addCentre(orientation),
+			toggleCrop: () => this.crop?.toggle(),
+			cropActive: () => this.crop?.active ?? false,
+			canCrop: () => this.crop?.canCrop() ?? false,
+			resetCrop: () => this.crop?.reset(),
+			clearGuides: () => this.guides?.clearAll(),
+			hasGuides: () => (this.guides?.all.length ?? 0) > 0,
 			save: () => void this.save(),
 			isDirty: () => this.loaded?.pkg.isDirty ?? false,
 			undo: () => this.undo(),
@@ -303,6 +364,8 @@ export class PptxView extends FileView {
 	/** Rebuild only the viewer, e.g. after toggling the thumbnail rail. */
 	private rebuildViewer(): void {
 		const current = this.viewer?.currentSlideNumber ?? 1;
+		this.selectionPane?.destroy();
+		this.selectionPane = null;
 		this.viewer?.destroy();
 		this.createViewer(current);
 		this.ribbon?.update();
@@ -528,12 +591,16 @@ export class PptxView extends FileView {
 
 	private teardown(): void {
 		this.contentEl.removeEventListener("keydown", this.onKeyDown, { capture: true });
+		this.selectionPane?.destroy();
+		this.selectionPane = null;
 		this.viewer?.destroy();
 		this.ribbon?.destroy();
 		this.viewer = null;
 		this.ribbon = null;
 		this.editController = null;
 		this.shapeEditor = null;
+		this.guides = null;
+		this.crop = null;
 		this.deckEditor = null;
 		this.selection.clear();
 		this.tableSelection.clear();

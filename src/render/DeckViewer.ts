@@ -28,6 +28,16 @@ export interface DeckViewerOptions {
 	onRendered?: (slideEl: HTMLElement | null) => void;
 	/** Dragging a thumbnail onto another position. */
 	onReorder?: (from: number, to: number) => void;
+	/** Show rulers around the slide, which is also how guides are created. */
+	showRulers?: boolean;
+	/** Reserve a column on the right for the selection pane. */
+	sidePane?: boolean;
+	/** Dragging out of a ruler, with the slide coordinate the drag started at. */
+	onRulerDrag?: (
+		orientation: "horz" | "vert",
+		position: number,
+		event: PointerEvent,
+	) => void;
 	onExportPng?: (slideIndex: number) => void;
 	onExtractMarkdown?: () => void;
 	onOpenExternal?: () => void;
@@ -56,6 +66,9 @@ export class DeckViewer {
 	private counterEl: HTMLElement | null = null;
 	private zoomLabelEl: HTMLElement | null = null;
 	private saveButtonEl: HTMLElement | null = null;
+	private sidePaneEl: HTMLElement | null = null;
+	private rulerH: HTMLElement | null = null;
+	private rulerV: HTMLElement | null = null;
 
 	private resizeObserver: ResizeObserver | null = null;
 	private thumbObserver: IntersectionObserver | null = null;
@@ -93,8 +106,15 @@ export class DeckViewer {
 			this.buildRail();
 		}
 
-		this.stageEl = body.createDiv({ cls: "pptx-stage" });
+		const area = body.createDiv({ cls: "pptx-canvas-area" });
+		if (this.options.showRulers && !this.options.compact) this.buildRulers(area);
+		this.stageEl = area.createDiv({ cls: "pptx-stage" });
+		if (this.options.showRulers && !this.options.compact) this.stageEl.addClass("has-rulers");
 		this.canvasEl = this.stageEl.createDiv({ cls: "pptx-canvas" });
+
+		if (this.options.sidePane && !this.options.compact) {
+			this.sidePaneEl = body.createDiv({ cls: "pptx-side" });
+		}
 
 		if (!this.options.compact) {
 			this.notesEl = this.root.createDiv({ cls: "pptx-notes" });
@@ -218,6 +238,65 @@ export class DeckViewer {
 			if (this.options.onReorder) this.makeThumbDraggable(item);
 			this.thumbObserver?.observe(item);
 		});
+	}
+
+	/**
+	 * Rulers along the top and left edge.
+	 *
+	 * They double as the place guides come from: dragging out of a ruler is the
+	 * gesture people already know, so no separate "add guide" step is needed.
+	 */
+	private buildRulers(area: HTMLElement): void {
+		this.rulerH = area.createDiv({ cls: "pptx-ruler pptx-ruler-h" });
+		this.rulerV = area.createDiv({ cls: "pptx-ruler pptx-ruler-v" });
+		for (const [el, orientation] of [
+			[this.rulerH, "vert"],
+			[this.rulerV, "horz"],
+		] as const) {
+			el.addEventListener("pointerdown", (event) => {
+				const position = this.rulerCoordinate(orientation, event);
+				if (position !== null) this.options.onRulerDrag?.(orientation, position, event);
+			});
+		}
+	}
+
+	/** Where in slide coordinates a ruler was pressed. */
+	private rulerCoordinate(orientation: "horz" | "vert", event: PointerEvent): number | null {
+		const slide = this.canvasEl.firstElementChild as HTMLElement | null;
+		if (!slide) return null;
+		const rect = slide.getBoundingClientRect();
+		const scale = Math.max(this.lastScale, 0.05);
+		return orientation === "vert"
+			? (event.clientX - rect.left) / scale
+			: (event.clientY - rect.top) / scale;
+	}
+
+	/** Redraw ruler ticks for the current zoom and slide position. */
+	private paintRulers(): void {
+		const slide = this.canvasEl.firstElementChild as HTMLElement | null;
+		if (!slide || !this.rulerH || !this.rulerV) return;
+		const scale = Math.max(this.lastScale, 0.05);
+		const slideRect = slide.getBoundingClientRect();
+
+		// Choose a spacing that keeps major ticks at least 60 screen pixels apart.
+		const candidates = [10, 20, 25, 50, 100, 200, 250, 500, 1000];
+		const step = candidates.find((c) => c * scale >= 60) ?? 1000;
+
+		for (const [el, horizontal, size] of [
+			[this.rulerH, true, this.deck.width],
+			[this.rulerV, false, this.deck.height],
+		] as const) {
+			const rect = el.getBoundingClientRect();
+			const origin = horizontal ? slideRect.left - rect.left : slideRect.top - rect.top;
+			el.empty();
+			for (let value = 0; value <= size + 0.5; value += step) {
+				const at = origin + value * scale;
+				if (at < -20 || at > (horizontal ? rect.width : rect.height) + 20) continue;
+				const tick = el.createDiv({ cls: "pptx-ruler-tick" });
+				tick.style[horizontal ? "left" : "top"] = `${at}px`;
+				tick.createSpan({ cls: "pptx-ruler-label", text: String(value) });
+			}
+		}
 	}
 
 	/**
@@ -357,6 +436,7 @@ export class DeckViewer {
 		this.zoomLabelEl?.setText(`${Math.round(scale * 100)}%`);
 		this.lastScale = scale;
 		this.options.shapeEditor?.refresh();
+		this.paintRulers();
 	}
 
 	/** The factor the slide element is currently scaled by. */
@@ -365,6 +445,11 @@ export class DeckViewer {
 	}
 
 	private lastScale = 1;
+
+	/** Where the selection pane mounts, when one was asked for. */
+	get sidePane(): HTMLElement | null {
+		return this.sidePaneEl;
+	}
 
 	/** Slide count, for callers driving navigation from outside. */
 	get slideCount(): number {

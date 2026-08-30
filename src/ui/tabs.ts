@@ -79,6 +79,17 @@ export interface RibbonHost {
 	pickTable: () => void;
 	pickLayout: () => void;
 	pickHyperlink: () => void;
+	toggleSelectionPane: () => void;
+	selectionPaneShown: () => boolean;
+	toggleRulers: () => void;
+	rulersShown: () => boolean;
+	addGuide: (orientation: "horz" | "vert") => void;
+	toggleCrop: () => void;
+	cropActive: () => boolean;
+	canCrop: () => boolean;
+	resetCrop: () => void;
+	clearGuides: () => void;
+	hasGuides: () => boolean;
 	tableSelection: TableSelection;
 	slideBackground: () => string | null;
 	exportPng: () => void;
@@ -637,6 +648,27 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 						},
 					],
 				},
+				{
+					title: t("group.picture"),
+					items: [
+						{
+							kind: "button",
+							icon: "crop",
+							label: t("cmd.crop"),
+							tooltip: t("cmd.cropTooltip"),
+							isEnabled: () => host.canEdit() && (host.canCrop() || host.cropActive()),
+							isActive: host.cropActive,
+							onClick: host.toggleCrop,
+						},
+						{
+							kind: "button",
+							icon: "image-minus",
+							tooltip: t("cmd.resetCrop"),
+							isEnabled: () => host.canEdit() && host.canCrop(),
+							onClick: host.resetCrop,
+						},
+					],
+				},
 				{ title: t("group.arrange"), items: arrangeItems },
 				{
 					title: t("group.rotate"),
@@ -813,6 +845,43 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 							label: t("cmd.thumbnails"),
 							tooltip: t("cmd.thumbnailsTooltip"),
 							onClick: host.toggleThumbnails,
+						},
+						{
+							kind: "button",
+							icon: "layers-2",
+							label: t("cmd.selectionPane"),
+							tooltip: t("cmd.selectionPaneTooltip"),
+							isActive: host.selectionPaneShown,
+							onClick: host.toggleSelectionPane,
+						},
+						{
+							kind: "button",
+							icon: "ruler",
+							label: t("cmd.rulers"),
+							tooltip: t("cmd.rulersTooltip"),
+							isActive: host.rulersShown,
+							onClick: host.toggleRulers,
+						},
+						{
+							kind: "menu",
+							icon: "move-horizontal",
+							label: t("cmd.guides"),
+							tooltip: t("cmd.guidesTooltip"),
+							build: (menu: Menu) => {
+								menu.addItem((item) =>
+									item.setTitle(t("cmd.addGuideH")).onClick(() => host.addGuide("horz")),
+								);
+								menu.addItem((item) =>
+									item.setTitle(t("cmd.addGuideV")).onClick(() => host.addGuide("vert")),
+								);
+								menu.addSeparator();
+								menu.addItem((item) =>
+									item
+										.setTitle(t("cmd.clearGuides"))
+										.setDisabled(!host.hasGuides())
+										.onClick(() => host.clearGuides()),
+								);
+							},
 						},
 					],
 				},

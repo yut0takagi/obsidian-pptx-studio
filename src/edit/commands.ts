@@ -6,6 +6,7 @@ import {
 	groupChildren,
 	insertAfter,
 	nextShapeId,
+	nonVisualProps,
 	p as pEl,
 	a as aEl,
 	reassignIds,
@@ -397,4 +398,35 @@ export function unionBounds(frames: Frame[]): { x: number; y: number; w: number;
 /** True when a shape can be ungrouped. */
 export function isGroup(shape: Shape): boolean {
 	return shape.kind === "group" && shape.source !== null && child(shape.source, "grpSpPr") !== null;
+}
+
+// ------------------------------------------------------- shape identity
+
+/** Show or hide a shape, the way the selection pane's eye toggle does. */
+export function setShapeHidden(ctx: CommandContext, id: string, hidden: boolean): boolean {
+	const tree = spTreeOf(ctx.pkg, slidePath(ctx));
+	const el = findShapesById(tree, new Set([id]))[0];
+	const props = el ? nonVisualProps(el) : null;
+	if (!props) return false;
+	return ctx.editor.transact(hidden ? "Hide shape" : "Show shape", [slidePath(ctx)], () => {
+		if (hidden) props.setAttribute("hidden", "1");
+		else props.removeAttribute("hidden");
+		return true;
+	});
+}
+
+export function renameShape(ctx: CommandContext, id: string, name: string): boolean {
+	const tree = spTreeOf(ctx.pkg, slidePath(ctx));
+	const el = findShapesById(tree, new Set([id]))[0];
+	const props = el ? nonVisualProps(el) : null;
+	if (!props || props.getAttribute("name") === name) return false;
+	return ctx.editor.transact("Rename shape", [slidePath(ctx)], () => {
+		props.setAttribute("name", name);
+		return true;
+	});
+}
+
+/** Shapes on the slide in z-order, top-most first, for the selection pane. */
+export function shapeListing(ctx: CommandContext): Shape[] {
+	return [...ctx.slide.shapes.slice(ctx.slide.templateShapes)].filter((s) => s.source).reverse();
 }

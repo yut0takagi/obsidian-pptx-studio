@@ -15,6 +15,8 @@ import { installDom } from "./dom-shim";
 installDom();
 
 import { commitTextBody } from "../src/edit/textEdit";
+import { writeCrop } from "../src/edit/CropController";
+import { guideParts, readGuides, writeGuides } from "../src/ooxml/guides";
 import { DeckEditor } from "../src/edit/DeckEditor";
 import { Selection } from "../src/edit/Selection";
 import {
@@ -23,7 +25,9 @@ import {
 	deleteSelection,
 	duplicateSelection,
 	groupSelection,
+	renameShape,
 	reorderSelection,
+	setShapeHidden,
 	ungroupSelection,
 } from "../src/edit/commands";
 import {
@@ -56,7 +60,7 @@ import {
 	setSlideBackgroundColor,
 } from "../src/edit/slideCommands";
 import { encodePng } from "./png.mjs";
-import { writeShapeFrame } from "../src/edit/geometryWrite";
+import { writeFrame, writeShapeFrame } from "../src/edit/geometryWrite";
 import { parseDeck, rebuildDeck } from "../src/pptx/parse";
 import type { PptxPackage } from "../src/pptx/package";
 import { renderSlide } from "../src/render/renderSlide";
@@ -746,6 +750,71 @@ function checkEditorCommands(path: string): void {
 		if (copyFormatting(ctx())) pass("copy formatting");
 		else fail("copy formatting did nothing");
 		step("paste formatting", () => pasteFormatting(ctx()), () => null);
+		// Guides live in ppt/viewProps.xml, a part this deck may not even have yet.
+		step(
+			"add guides",
+			() =>
+				editor.transact("Guides", guideParts(), () =>
+					writeGuides(pkg, [
+						{ orientation: "vert", position: 640 },
+						{ orientation: "horz", position: 360 },
+					]),
+				),
+			() => {
+				const guides = readGuides(pkg);
+				if (guides.length !== 2) return `read back ${guides.length} guides`;
+				const vert = guides.find((g) => g.orientation === "vert");
+				return vert && Math.abs(vert.position - 640) < 0.5
+					? null
+					: `vertical guide came back at ${vert?.position}`;
+			},
+		);
+
+		// Cropping moves the frame and the source rectangle together.
+		const picture = ownShapes().find((s) => s.kind === "image");
+		if (picture?.source) {
+			const pictureId = picture.id;
+			const before = { ...picture.frame };
+			step(
+				"crop picture",
+				() =>
+					editor.transact("Crop", [model.slides[0].partPath], () => {
+						writeCrop(picture.source!, { l: 0.1, t: 0.2, r: 0.1, b: 0 });
+						writeFrame(picture.source!, {
+							...before,
+							x: before.x + before.w * 0.1,
+							w: before.w * 0.8,
+							h: before.h * 0.8,
+						});
+						return true;
+					}),
+				() => {
+					const shape = ownShapes().find((s) => s.id === pictureId);
+					if (shape?.kind !== "image") return "the picture vanished";
+					const crop = shape.crop;
+					if (!crop) return "no crop came back";
+					return Math.abs(crop.l - 0.1) < 0.001 && Math.abs(crop.t - 0.2) < 0.001
+						? null
+						: `crop came back as ${JSON.stringify(crop)}`;
+				},
+			);
+		}
+
+		const anyShape = ownShapes()[0];
+		step(
+			"hide shape",
+			() => setShapeHidden(ctx(), anyShape.id, true),
+			() => (ownShapes().find((s) => s.id === anyShape.id)?.hidden ? null : "still visible"),
+		);
+		step(
+			"rename shape",
+			() => renameShape(ctx(), anyShape.id, "Renamed by the smoke test"),
+			() =>
+				ownShapes().find((s) => s.id === anyShape.id)?.name === "Renamed by the smoke test"
+					? null
+					: "the name did not stick",
+		);
+
 		step(
 			"slide background",
 			() => setSlideBackgroundColor(ctx(), "#eef2f6"),

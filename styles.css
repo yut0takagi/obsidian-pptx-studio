@@ -552,3 +552,169 @@
 .pptx-rotate:active {
 	cursor: grabbing;
 }
+
+/* --------------------------------------------------------------- rulers */
+
+.pptx-canvas-area {
+	position: relative;
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+}
+
+.pptx-ruler {
+	position: absolute;
+	background: var(--background-primary);
+	color: var(--text-faint);
+	font-size: 9px;
+	z-index: 5;
+	overflow: hidden;
+	user-select: none;
+	touch-action: none;
+}
+
+.pptx-ruler-h {
+	top: 0;
+	left: 18px;
+	right: 0;
+	height: 18px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	cursor: row-resize;
+}
+
+.pptx-ruler-v {
+	top: 18px;
+	left: 0;
+	bottom: 0;
+	width: 18px;
+	border-right: 1px solid var(--background-modifier-border);
+	cursor: col-resize;
+}
+
+.pptx-ruler-tick {
+	position: absolute;
+}
+
+.pptx-ruler-h .pptx-ruler-tick {
+	top: 0;
+	bottom: 0;
+	border-left: 1px solid var(--background-modifier-border);
+	padding-left: 2px;
+}
+
+.pptx-ruler-v .pptx-ruler-tick {
+	left: 0;
+	right: 0;
+	border-top: 1px solid var(--background-modifier-border);
+	padding-left: 2px;
+}
+
+.pptx-ruler-label {
+	display: block;
+	line-height: 1.4;
+	font-variant-numeric: tabular-nums;
+}
+
+.pptx-stage.has-rulers {
+	padding-top: calc(18px + var(--size-4-3));
+	padding-left: calc(18px + var(--size-4-3));
+}
+
+/* Guides are drawn inside the slide so they scale with it. */
+.pptx-user-guides {
+	mix-blend-mode: normal;
+}
+
+/* ------------------------------------------------------- selection pane */
+
+.pptx-side {
+	flex: 0 0 200px;
+	border-left: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	overflow-y: auto;
+	min-height: 0;
+}
+
+.pptx-selection-pane {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.pptx-pane-title {
+	font-size: var(--font-ui-smaller);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--text-faint);
+	padding: var(--size-4-2) var(--size-4-2) var(--size-4-1);
+}
+
+.pptx-pane-list {
+	flex: 1 1 auto;
+	overflow-y: auto;
+	padding: 0 var(--size-4-1) var(--size-4-2);
+}
+
+.pptx-pane-row {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 2px 4px;
+	border-radius: var(--radius-s);
+	cursor: pointer;
+	font-size: var(--font-ui-smaller);
+}
+
+.pptx-pane-row:hover {
+	background: var(--background-modifier-hover);
+}
+
+.pptx-pane-row.is-selected {
+	background: var(--background-modifier-active-hover, var(--background-modifier-hover));
+	color: var(--text-accent);
+}
+
+.pptx-pane-row.is-hidden .pptx-pane-name {
+	opacity: 0.45;
+	font-style: italic;
+}
+
+.pptx-pane-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pptx-pane-eye .svg-icon,
+.pptx-pane-move .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
+.pptx-pane-move,
+.pptx-pane-eye {
+	opacity: 0.55;
+	flex: 0 0 auto;
+	padding: 1px;
+}
+
+.pptx-pane-row:hover .pptx-pane-move,
+.pptx-pane-row:hover .pptx-pane-eye {
+	opacity: 1;
+}
+
+.pptx-pane-rename {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: var(--font-ui-smaller);
+	height: 20px;
+	padding: 0 4px;
+}
+
+.pptx-pane-empty {
+	padding: var(--size-4-2);
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+}

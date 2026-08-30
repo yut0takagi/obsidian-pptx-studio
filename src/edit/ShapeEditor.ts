@@ -18,6 +18,10 @@ export interface ShapeEditorOptions {
 	onContextMenu: (event: MouseEvent) => void;
 	/** Called when a click lands on a table cell, so the table editor can follow. */
 	onCellPointerDown?: (shape: Shape, row: number, column: number, additive: boolean) => void;
+	/** User guides to snap against, alongside the other shapes and the slide. */
+	extraGuides?: () => { xs: number[]; ys: number[] };
+	/** Gives the guide controller first refusal on a press, so guides can be dragged. */
+	claimPointer?: (event: PointerEvent) => boolean;
 }
 
 type HandleId = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
@@ -306,6 +310,11 @@ export class ShapeEditor {
 		const target = event.target;
 		if (!(target instanceof HTMLElement)) return;
 		this.slideEl = event.currentTarget as HTMLElement;
+
+		// A press on a guide moves the guide, not whatever is behind it.
+		if (!target.closest("[data-handle],[data-rotate]") && this.options.claimPointer?.(event)) {
+			return;
+		}
 
 		if (target.closest<HTMLElement>("[data-rotate]")) {
 			this.beginRotate(event);
@@ -734,6 +743,11 @@ export class ShapeEditor {
 		const height = parseFloat(slideEl.style.height) || slideEl.offsetHeight;
 		xs.push(0, width / 2, width);
 		ys.push(0, height / 2, height);
+		const extra = this.options.extraGuides?.();
+		if (extra) {
+			xs.push(...extra.xs);
+			ys.push(...extra.ys);
+		}
 		for (const el of Array.from(slideEl.querySelectorAll<HTMLElement>("[data-shape-id]"))) {
 			const shape = shapeRegistry.get(el);
 			if (!shape || exclude.has(shape.id) || shape.hidden || shape.frame.rot) continue;

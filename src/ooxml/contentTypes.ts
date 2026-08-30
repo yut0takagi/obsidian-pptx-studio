@@ -64,6 +64,7 @@ export const CONTENT_TYPES_PART = CONTENT_TYPES;
 export const CT = {
 	slide: "application/vnd.openxmlformats-officedocument.presentationml.slide+xml",
 	notesSlide: "application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml",
+	viewProps: "application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml",
 	image: {
 		png: "image/png",
 		jpg: "image/jpeg",
