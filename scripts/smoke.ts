@@ -15,9 +15,28 @@ import { installDom } from "./dom-shim";
 installDom();
 
 import { commitTextBody } from "../src/edit/textEdit";
+import { DeckEditor } from "../src/edit/DeckEditor";
+import { Selection } from "../src/edit/Selection";
+import {
+	type CommandContext,
+	alignSelection,
+	deleteSelection,
+	duplicateSelection,
+	groupSelection,
+	reorderSelection,
+	ungroupSelection,
+} from "../src/edit/commands";
+import { applyTextFormat, setFill } from "../src/edit/formatCommands";
+import { insertAutoShape, insertPicture, insertTable, insertTextBox } from "../src/edit/insertCommands";
+import {
+	deleteCurrentSlide,
+	duplicateCurrentSlide,
+	newSlide,
+	reorderSlide,
+} from "../src/edit/slideCommands";
+import { encodePng } from "./png.mjs";
 import { writeShapeFrame } from "../src/edit/geometryWrite";
-import { ElementHistory, capture } from "../src/edit/History";
-import { parseDeck } from "../src/pptx/parse";
+import { parseDeck, rebuildDeck } from "../src/pptx/parse";
 import type { PptxPackage } from "../src/pptx/package";
 import { renderSlide } from "../src/render/renderSlide";
 import { shapeRegistry, textBodyRegistry } from "../src/render/renderSlide";
@@ -335,16 +354,15 @@ function checkUndoRedo(path: string): void {
 
 		const { shape, slide } = subject;
 		const original = { ...shape.frame };
-		const history = new ElementHistory();
-		const snapshot = capture(shape.source!);
+		const editor = new DeckEditor(pkg, { onChanged: () => undefined });
+		const before = editor.capture([shape.sourcePart]);
 
 		const part = writeShapeFrame(shape, { ...shape.frame, x: 500, y: 400 });
 		if (!part) {
 			fail("writeShapeFrame refused the subject shape");
 			return;
 		}
-		history.record("Move shape", part, snapshot);
-		pkg.markDirty(part);
+		editor.recordApplied("Move shape", before);
 
 		const read = (): Shape | undefined =>
 			reopen(pkg, name).slides[slide.index - 1]?.shapes.find((s) => s.id === shape.id);
@@ -355,7 +373,7 @@ function checkUndoRedo(path: string): void {
 			return;
 		}
 
-		history.undo();
+		editor.undo();
 		const undone = read();
 		if (!undone) {
 			fail("the shape disappeared after undo");
@@ -370,10 +388,219 @@ function checkUndoRedo(path: string): void {
 		}
 		pass("undo restored the original position");
 
-		history.redo();
+		editor.redo();
 		const redone = read();
 		if (!redone || Math.abs(redone.frame.x - 500) > 0.5) fail("redo did not reapply the move");
 		else pass("redo reapplied the move");
+	} finally {
+		pkg.dispose();
+	}
+}
+
+/**
+ * Drive the whole editor command set, then undo it all and check the package is
+ * byte-identical to where it started.
+ *
+ * That round trip is the strongest single assertion available here: it proves
+ * every command records enough to be reversed, including the ones that create
+ * and delete parts.
+ */
+function checkEditorCommands(path: string): void {
+	const name = basename(path);
+	const { deck, pkg } = parseDeck(readFileSync(path), name);
+	let model = deck;
+
+	const selection = new Selection();
+	const editor = new DeckEditor(pkg, {
+		onChanged: (rebuild) => {
+			if (rebuild) model = rebuildDeck(pkg, name);
+		},
+	});
+	const ctx = (index = 0): CommandContext => ({
+		editor,
+		pkg,
+		deck: model,
+		slide: model.slides[index],
+		selection,
+	});
+	const ownShapes = (index = 0) =>
+		model.slides[index].shapes.slice(model.slides[index].templateShapes);
+
+	// Where the package stands before any command runs.
+	const original: Record<string, Uint8Array | null> = {};
+	for (const part of pkg.partPaths()) original[part] = pkg.serializePart(part);
+	const originalParts = new Set(pkg.partPaths());
+
+	let steps = 0;
+	const step = (label: string, run: () => boolean, expect?: () => string | null): void => {
+		if (!run()) {
+			fail(`${label} did nothing`);
+			return;
+		}
+		steps++;
+		const problem = expect?.();
+		if (problem) fail(`${label}: ${problem}`);
+		else pass(label);
+	};
+
+	try {
+		const before = ownShapes().length;
+
+		step(
+			"insert text box",
+			() => insertTextBox(ctx()),
+			() => (ownShapes().length === before + 1 ? null : "shape count did not rise"),
+		);
+		const textBoxId = ownShapes()[ownShapes().length - 1].id;
+		step(
+			"insert shape",
+			() => insertAutoShape(ctx(), "roundRect", "Rounded rectangle"),
+			() => (ownShapes().length === before + 2 ? null : "shape count did not rise"),
+		);
+		step(
+			"insert table",
+			() => insertTable(ctx(), 3, 3),
+			() => {
+				const table = ownShapes().find((s) => s.kind === "table");
+				if (!table || table.kind !== "table") return "no table in the model";
+				return table.table.rows.length === 3 && table.table.rows[0].cells.length === 3
+					? null
+					: "table has the wrong shape";
+			},
+		);
+		step(
+			"insert picture",
+			() =>
+				insertPicture(ctx(), {
+					bytes: encodePng(64, 40, (x, y) => [x * 3, y * 5, 200]),
+					extension: "png",
+					name: "smoke.png",
+					width: 64,
+					height: 40,
+				}),
+			() => {
+				const media = pkg.partPaths().filter((p) => p.startsWith("ppt/media/"));
+				const picture = ownShapes().find((s) => s.kind === "image");
+				if (!picture) return "no picture in the model";
+				if (media.length === 0) return "no media part was added";
+				return picture.kind === "image" && picture.url ? null : "picture has no resolvable image";
+			},
+		);
+
+		// Selection-driven commands.
+		const ids = ownShapes()
+			.slice(-2)
+			.map((s) => s.id);
+		selection.set(0, ids);
+		step(
+			"group",
+			() => groupSelection(ctx()),
+			() => (ownShapes().some((s) => s.kind === "group") ? null : "no group appeared"),
+		);
+		step(
+			"ungroup",
+			() => ungroupSelection(ctx()),
+			() => null,
+		);
+
+		selection.set(0, [ownShapes()[ownShapes().length - 1].id]);
+		step("bring to back", () => reorderSelection(ctx(), "back"), () => null);
+		step("align left", () => alignSelection(ctx(), "left"), () => null);
+		step(
+			"duplicate",
+			() => duplicateSelection(ctx()),
+			() => null,
+		);
+		selection.set(0, [textBoxId]);
+		step(
+			"bold",
+			() => applyTextFormat(ctx(), { bold: true }, "Bold"),
+			() => {
+				const box = ownShapes().find((s) => s.id === textBoxId);
+				if (!box || box.kind !== "shape" || !box.text) return "the text box vanished";
+				return box.text.paragraphs.some((p) => p.runs.some((r) => r.bold))
+					? null
+					: "no run came back bold";
+			},
+		);
+		step(
+			"fill",
+			() => setFill(ctx(), "#123456"),
+			() => {
+				const box = ownShapes().find((s) => s.id === textBoxId);
+				return box?.kind === "shape" && box.fill?.kind === "solid" && box.fill.color === "#123456"
+					? null
+					: "the fill did not come back";
+			},
+		);
+		step(
+			"delete",
+			() => deleteSelection(ctx()),
+			() => (ownShapes().some((s) => s.id === textBoxId) ? "the shape is still there" : null),
+		);
+
+		// Slide-level commands.
+		const slidesBefore = model.slides.length;
+		step(
+			"new slide",
+			() => newSlide(ctx()) >= 0,
+			() => (model.slides.length === slidesBefore + 1 ? null : "slide count did not rise"),
+		);
+		step(
+			"duplicate slide",
+			() => duplicateCurrentSlide(ctx()) >= 0,
+			() => (model.slides.length === slidesBefore + 2 ? null : "slide count did not rise"),
+		);
+		step(
+			"reorder slides",
+			() => reorderSlide(ctx(), 0, 1),
+			() => null,
+		);
+		step(
+			"delete slide",
+			() => deleteCurrentSlide(ctx()),
+			() => (model.slides.length === slidesBefore + 1 ? null : "slide count did not fall"),
+		);
+
+		// The edited deck must still be a deck.
+		const edited = reopen(pkg, name);
+		if (edited.slides.length !== model.slides.length) {
+			fail(`edited deck reopened with ${edited.slides.length} slides, expected ${model.slides.length}`);
+		} else {
+			pass(`edited deck reopens with ${edited.slides.length} slides`);
+		}
+		const keep = process.env.PPTX_SMOKE_EDITED;
+		if (keep) {
+			writeFileSync(keep, pkg.toZip());
+			console.log(`    wrote the edited deck to ${keep}`);
+		}
+
+		// Undo everything and compare against where we started.
+		for (let i = 0; i < steps; i++) {
+			if (!editor.undo()) {
+				fail(`ran out of undo after ${i} of ${steps} steps`);
+				break;
+			}
+		}
+		const nowParts = new Set(pkg.partPaths());
+		const added = [...nowParts].filter((p) => !originalParts.has(p));
+		const removed = [...originalParts].filter((p) => !nowParts.has(p));
+		const differing = [...originalParts].filter((p) => {
+			const before = original[p];
+			const after = pkg.serializePart(p);
+			if (!before || !after) return true;
+			return Buffer.compare(Buffer.from(before), Buffer.from(after)) !== 0;
+		});
+
+		if (added.length || removed.length || differing.length) {
+			fail(
+				`undo did not restore the package: ` +
+					`${added.length} extra, ${removed.length} missing, ${differing.length} changed` +
+					(differing.length ? ` (${differing.slice(0, 3).join(", ")})` : ""),
+			);
+		} else {
+			pass(`undo of ${steps} commands restored every part exactly`);
+		}
 	} finally {
 		pkg.dispose();
 	}
@@ -397,6 +624,9 @@ checkParagraphDelete(files[0]);
 console.log(`\nMoving and resizing shapes in ${basename(files[0])}:`);
 checkGeometryEdit(files[0]);
 checkUndoRedo(files[0]);
+
+console.log(`\nEditor commands on ${basename(files[0])}:`);
+checkEditorCommands(files[0]);
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

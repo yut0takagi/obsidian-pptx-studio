@@ -15,8 +15,14 @@ export interface DeckViewerOptions {
 	fitMode: "page" | "width";
 	/** Fixed slide to show, disabling navigation. */
 	pinnedSlide?: number;
-	/** Show the toolbar. */
-	controls: boolean;
+	/**
+	 * "toolbar" puts navigation and zoom in a bar above the slide, which is what
+	 * embeds want. "status" puts them in a slim bar underneath, leaving the top of
+	 * the pane to the ribbon.
+	 */
+	chrome: "toolbar" | "status" | "none";
+	/** Called when the visible slide changes, before the new one is shown. */
+	onSlideChange?: (index: number) => void;
 	onExportPng?: (slideIndex: number) => void;
 	onExtractMarkdown?: () => void;
 	onOpenExternal?: () => void;
@@ -73,7 +79,7 @@ export class DeckViewer {
 	}
 
 	private build(): void {
-		if (this.options.controls) this.buildToolbar();
+		if (this.options.chrome === "toolbar") this.buildToolbar();
 
 		const body = this.root.createDiv({ cls: "pptx-body" });
 
@@ -89,6 +95,7 @@ export class DeckViewer {
 			this.notesEl = this.root.createDiv({ cls: "pptx-notes" });
 			this.notesEl.toggleClass("is-hidden", !this.notesVisible);
 		}
+		if (this.options.chrome === "status") this.buildStatusBar();
 
 		this.root.tabIndex = 0;
 		this.root.addEventListener("keydown", this.onKeyDown);
@@ -98,6 +105,24 @@ export class DeckViewer {
 		this.resizeObserver.observe(this.stageEl);
 
 		this.showSlide(this.index);
+	}
+
+	/** A slim bar under the slide: where it is, how big it is, notes on or off. */
+	private buildStatusBar(): void {
+		const bar = this.root.createDiv({ cls: "pptx-statusbar" });
+		const nav = bar.createDiv({ cls: "pptx-toolbar-group" });
+		this.iconButton(nav, "chevron-left", "Previous slide (\u2190)", () => this.go(this.index - 1));
+		this.counterEl = nav.createSpan({ cls: "pptx-counter" });
+		this.iconButton(nav, "chevron-right", "Next slide (\u2192)", () => this.go(this.index + 1));
+
+		const right = bar.createDiv({ cls: "pptx-toolbar-group pptx-toolbar-right" });
+		this.iconButton(right, "sticky-note", "Toggle speaker notes (N)", () => this.toggleNotes());
+		this.iconButton(right, "zoom-out", "Zoom out (\u2212)", () => this.stepZoom(-1));
+		this.zoomLabelEl = right.createSpan({ cls: "pptx-zoom-label" });
+		this.zoomLabelEl.addEventListener("click", () => this.setZoom(null));
+		this.zoomLabelEl.setAttribute("aria-label", "Fit to pane (0)");
+		this.iconButton(right, "zoom-in", "Zoom in (+)", () => this.stepZoom(1));
+		this.iconButton(right, "maximize", "Fit to pane (0)", () => this.setZoom(null));
 	}
 
 	private buildToolbar(): void {
@@ -220,10 +245,11 @@ export class DeckViewer {
 	}
 
 	private showSlide(index: number): void {
-		this.options.shapeEditor?.deselect();
+		this.options.onSlideChange?.(index);
 		const el = this.slideElement(index);
 		this.canvasEl.empty();
 		if (el) this.canvasEl.appendChild(el);
+		this.options.shapeEditor?.setActive(el);
 
 		if (this.counterEl) {
 			this.counterEl.setText(
@@ -282,6 +308,40 @@ export class DeckViewer {
 	}
 
 	private lastScale = 1;
+
+	/** Slide count, for callers driving navigation from outside. */
+	get slideCount(): number {
+		return this.deck.slides.length;
+	}
+
+	next(): void {
+		this.go(this.index + 1);
+	}
+
+	previous(): void {
+		this.go(this.index - 1);
+	}
+
+	zoomIn(): void {
+		this.stepZoom(1);
+	}
+
+	zoomOut(): void {
+		this.stepZoom(-1);
+	}
+
+	zoomToFit(): void {
+		this.setZoom(null);
+	}
+
+	showNotes(visible: boolean): void {
+		if (this.notesVisible === visible) return;
+		this.toggleNotes();
+	}
+
+	get notesShown(): boolean {
+		return this.notesVisible;
+	}
 
 	private stepZoom(direction: number): void {
 		const current = this.currentScale();

@@ -1,30 +1,53 @@
-import { FileView, Notice, type TFile, type WorkspaceLeaf } from "obsidian";
-import { EditController } from "../edit/EditController";
-import { ElementHistory } from "../edit/History";
-import { ShapeEditor } from "../edit/ShapeEditor";
-import { ConflictError, saveDeck } from "../edit/save";
-import { DeckViewer } from "../render/DeckViewer";
-import { rebuildDeck } from "../pptx/parse";
+import { FileView, Menu, Notice, type TFile, type WorkspaceLeaf } from "obsidian";
 import type { LoadedDeck } from "../DeckCache";
+import { DeckEditor } from "../edit/DeckEditor";
+import { EditController } from "../edit/EditController";
+import { Selection } from "../edit/Selection";
+import { ShapeEditor } from "../edit/ShapeEditor";
+import {
+	type CommandContext,
+	copySelection,
+	cutSelection,
+	deleteSelection,
+	duplicateSelection,
+	groupSelection,
+	hasClipboard,
+	pasteClipboard,
+	reorderSelection,
+	selectedShapes,
+	ungroupSelection,
+} from "../edit/commands";
+import { insertPicture, insertTable } from "../edit/insertCommands";
+import { ConflictError, saveDeck } from "../edit/save";
+import { canDeleteSlide, deleteCurrentSlide, listLayouts, newSlide } from "../edit/slideCommands";
+import { rebuildDeck } from "../pptx/parse";
+import { DeckViewer } from "../render/DeckViewer";
+import { Ribbon } from "../ui/Ribbon";
+import { ImagePickerModal, LayoutPickerModal, TableSizeModal, imageDimensions } from "../ui/modals";
+import { type RibbonHost, buildTabs } from "../ui/tabs";
 import type PptxViewerPlugin from "../main";
 
 export const VIEW_TYPE_PPTX = "pptx-viewer";
 
-/** The full-tab deck view: browse, edit text, save, export. */
+/** The full-tab deck editor: ribbon, slide canvas, selection, save. */
 export class PptxView extends FileView {
 	private viewer: DeckViewer | null = null;
-	private editor: EditController | null = null;
+	private ribbon: Ribbon | null = null;
+	private editController: EditController | null = null;
 	private shapeEditor: ShapeEditor | null = null;
-	private readonly history = new ElementHistory();
+	private deckEditor: DeckEditor | null = null;
+	private readonly selection = new Selection();
 	private loaded: LoadedDeck | null = null;
 	/** mtime the open deck was read from, used to detect outside edits. */
 	private baseMtime = 0;
+	private showThumbnails = true;
 
 	constructor(
 		leaf: WorkspaceLeaf,
 		private readonly plugin: PptxViewerPlugin,
 	) {
 		super(leaf);
+		this.selection.onChange(() => this.ribbon?.update());
 	}
 
 	getViewType(): string {
@@ -47,6 +70,7 @@ export class PptxView extends FileView {
 		this.teardown();
 		this.contentEl.empty();
 		this.contentEl.addClass("pptx-view");
+		this.showThumbnails = this.plugin.settings.showThumbnails;
 
 		const loading = this.contentEl.createDiv({ cls: "pptx-message", text: "Reading deck…" });
 		try {
@@ -54,7 +78,7 @@ export class PptxView extends FileView {
 			loading.remove();
 			this.loaded = loaded;
 			this.baseMtime = file.stat.mtime;
-			this.build(loaded);
+			this.build();
 		} catch (error) {
 			loading.remove();
 			this.renderError(file, error as Error);
@@ -62,115 +86,337 @@ export class PptxView extends FileView {
 	}
 
 	async onUnloadFile(_file: TFile): Promise<void> {
-		// Commit any in-progress edit so switching files never drops a keystroke.
-		this.editor?.commit();
+		this.editController?.commit();
 		this.teardown();
 		this.contentEl.empty();
 	}
 
 	onunload(): void {
-		this.editor?.commit();
+		this.editController?.commit();
 		this.teardown();
 	}
 
-	private build(loaded: LoadedDeck): void {
-		const settings = this.plugin.settings;
-		this.history.clear();
+	// --------------------------------------------------------------- build
 
-		this.editor = new EditController({
+	private build(): void {
+		const loaded = this.loaded;
+		if (!loaded) return;
+
+		this.deckEditor = new DeckEditor(loaded.pkg, {
+			onChanged: (rebuild) => this.afterEdit(rebuild),
+		});
+
+		this.editController = new EditController({
 			isEnabled: () => true,
-			history: this.history,
-			onFinish: (changedPart) => {
-				if (changedPart) this.applyEdit(changedPart);
-				else this.viewer?.invalidate();
-			},
+			editor: this.deckEditor,
+			onCancelled: () => this.viewer?.invalidate(),
 		});
 
 		this.shapeEditor = new ShapeEditor({
-			// Dragging is disabled while a text box is open, so a stray drag inside
-			// the caret's box cannot move the shape out from under the editor.
-			isEnabled: () => !this.editor?.isEditing,
+			selection: this.selection,
+			editor: this.deckEditor,
+			// Dragging is off while a text box is open, so a stray drag inside the
+			// caret's box cannot move the shape out from under the editor.
+			isEnabled: () => !this.editController?.isEditing,
 			getScale: () => this.viewer?.currentScale() ?? 1,
-			history: this.history,
-			onChange: (part) => {
-				// The model was updated in place, so the selection can stay put: only
-				// the dirty flag needs to change.
-				this.loaded?.pkg.markDirty(part);
-				this.viewer?.setDirty(true);
-			},
+			getContext: () => this.context(),
+			onContextMenu: (event) => this.showContextMenu(event),
 		});
 
+		this.ribbon = new Ribbon(this.contentEl, buildTabs(this.ribbonHost()));
+		this.createViewer(1);
+		this.contentEl.addEventListener("keydown", this.onKeyDown, { capture: true });
+		this.viewer?.focus();
+		this.ribbon.update();
+	}
+
+	private createViewer(slideNumber: number): void {
+		const loaded = this.loaded;
+		if (!loaded) return;
+		const settings = this.plugin.settings;
 		this.viewer = new DeckViewer(this.contentEl, {
 			deck: loaded.deck,
 			pkg: loaded.pkg,
 			compact: false,
-			controls: true,
-			showThumbnails: settings.showThumbnails,
+			chrome: "status",
+			showThumbnails: this.showThumbnails,
 			showNotes: settings.showNotes,
 			fitMode: settings.fitMode,
-			editor: this.editor,
-			shapeEditor: this.shapeEditor,
-			onSave: () => void this.save(),
-			onExportPng: (slideIndex) => void this.plugin.exportSlidePng(loaded, this.file, slideIndex),
-			onExtractMarkdown: () => void this.plugin.extractMarkdown(loaded, this.file),
-			onOpenExternal: () => this.plugin.openExternally(this.file),
+			editor: this.editController ?? undefined,
+			shapeEditor: this.shapeEditor ?? undefined,
+			onSlideChange: () => this.selection.clear(),
 		});
+		if (slideNumber > 1) this.viewer.go(slideNumber - 1);
 		this.viewer.setDirty(loaded.pkg.isDirty);
-
-		this.contentEl.addEventListener("keydown", this.onKeyDown, { capture: true });
-		this.viewer.focus();
 	}
 
-	/** Save and undo/redo, while the deck view has focus. */
+	/** Rebuild the model and repaint after an edit. */
+	private afterEdit(rebuild: boolean): void {
+		const loaded = this.loaded;
+		if (!loaded) return;
+		if (rebuild) {
+			loaded.deck = rebuildDeck(loaded.pkg, this.file?.basename ?? "Deck");
+			this.viewer?.setDeck(loaded.deck);
+			// Shapes can vanish from under a selection: deleted, ungrouped, undone.
+			const slide = loaded.deck.slides[this.selection.slideIndex];
+			const existing = new Set((slide?.shapes ?? []).filter((s) => s.source).map((s) => s.id));
+			this.selection.retain(existing);
+			this.shapeEditor?.refresh();
+		}
+		this.viewer?.setDirty(true);
+		this.ribbon?.update();
+	}
+
+	private context(): CommandContext | null {
+		const loaded = this.loaded;
+		const viewer = this.viewer;
+		const editor = this.deckEditor;
+		if (!loaded || !viewer || !editor) return null;
+		const slide = loaded.deck.slides[viewer.currentSlideNumber - 1];
+		if (!slide) return null;
+		return { editor, pkg: loaded.pkg, deck: loaded.deck, slide, selection: this.selection };
+	}
+
+	private run(fn: (ctx: CommandContext) => unknown): void {
+		const ctx = this.context();
+		if (!ctx) return;
+		try {
+			fn(ctx);
+		} catch (error) {
+			new Notice(`That edit failed: ${(error as Error).message}`, 8000);
+		}
+		this.ribbon?.update();
+	}
+
+	/** Run a slide-level command and navigate to the slide it returns. */
+	private runSlide(fn: (ctx: CommandContext) => number): void {
+		const ctx = this.context();
+		if (!ctx) return;
+		let target = -1;
+		try {
+			target = fn(ctx);
+		} catch (error) {
+			new Notice(`That edit failed: ${(error as Error).message}`, 8000);
+			return;
+		}
+		if (target >= 0) this.viewer?.go(target);
+		this.ribbon?.update();
+	}
+
+	// ---------------------------------------------------------- ribbon host
+
+	private ribbonHost(): RibbonHost {
+		return {
+			ctx: () => this.context(),
+			run: (fn) => this.run(fn),
+			runSlide: (fn) => this.runSlide(fn),
+			canEdit: () => this.loaded !== null,
+			zoomIn: () => this.viewer?.zoomIn(),
+			zoomOut: () => this.viewer?.zoomOut(),
+			zoomToFit: () => this.viewer?.zoomToFit(),
+			toggleNotes: () => {
+				this.viewer?.showNotes(!this.viewer.notesShown);
+				this.ribbon?.update();
+			},
+			notesShown: () => this.viewer?.notesShown ?? false,
+			toggleThumbnails: () => {
+				this.showThumbnails = !this.showThumbnails;
+				this.rebuildViewer();
+			},
+			save: () => void this.save(),
+			isDirty: () => this.loaded?.pkg.isDirty ?? false,
+			undo: () => this.undo(),
+			redo: () => this.redo(),
+			canUndo: () => this.deckEditor?.canUndo ?? false,
+			canRedo: () => this.deckEditor?.canRedo ?? false,
+			selectAll: () => {
+				this.shapeEditor?.selectAll();
+				this.ribbon?.update();
+			},
+			pickImage: () => this.pickImage(),
+			pickTable: () => this.pickTable(),
+			pickLayout: () => this.pickLayout(),
+			exportPng: () => void this.exportCurrentSlide(),
+			extractMarkdown: () => {
+				if (this.loaded) void this.plugin.extractMarkdown(this.loaded, this.file);
+			},
+			openExternally: () => this.plugin.openExternally(this.file),
+		};
+	}
+
+	/** Rebuild only the viewer, e.g. after toggling the thumbnail rail. */
+	private rebuildViewer(): void {
+		const current = this.viewer?.currentSlideNumber ?? 1;
+		this.viewer?.destroy();
+		this.createViewer(current);
+		this.ribbon?.update();
+	}
+
+	// -------------------------------------------------------------- insert
+
+	private pickImage(): void {
+		new ImagePickerModal(this.app, (file) => {
+			void (async () => {
+				try {
+					const bytes = new Uint8Array(await this.app.vault.readBinary(file));
+					const size = await imageDimensions(bytes, `image/${file.extension}`);
+					this.run((ctx) =>
+						insertPicture(ctx, {
+							bytes,
+							extension: file.extension,
+							name: file.name,
+							width: size?.width,
+							height: size?.height,
+						}),
+					);
+				} catch (error) {
+					new Notice(`Could not insert the image: ${(error as Error).message}`, 8000);
+				}
+			})();
+		}).open();
+	}
+
+	private pickTable(): void {
+		new TableSizeModal(this.app, (rows, columns) => {
+			this.run((ctx) => insertTable(ctx, rows, columns));
+		}).open();
+	}
+
+	private pickLayout(): void {
+		const ctx = this.context();
+		if (!ctx) return;
+		const layouts = listLayouts(ctx);
+		if (layouts.length === 0) {
+			new Notice("This deck has no slide layouts to choose from.");
+			return;
+		}
+		new LayoutPickerModal(this.app, layouts, (layout) => {
+			this.runSlide((c) => newSlide(c, layout.path));
+		}).open();
+	}
+
+	// -------------------------------------------------------- context menu
+
+	private showContextMenu(event: MouseEvent): void {
+		const ctx = this.context();
+		if (!ctx) return;
+		const menu = new Menu();
+		const shapes = selectedShapes(ctx);
+		const hasGroup = shapes.some((s) => s.kind === "group");
+
+		if (shapes.length > 0) {
+			menu.addItem((item) =>
+				item.setTitle("Cut").setIcon("scissors").onClick(() => this.run(cutSelection)),
+			);
+			menu.addItem((item) =>
+				item.setTitle("Copy").setIcon("copy").onClick(() => this.run(copySelection)),
+			);
+			menu.addItem((item) =>
+				item.setTitle("Duplicate").setIcon("copy-plus").onClick(() => this.run(duplicateSelection)),
+			);
+			menu.addItem((item) =>
+				item.setTitle("Delete").setIcon("trash").onClick(() => this.run(deleteSelection)),
+			);
+			menu.addSeparator();
+			menu.addItem((item) =>
+				item
+					.setTitle("Bring to front")
+					.setIcon("bring-to-front")
+					.onClick(() => this.run((c) => reorderSelection(c, "front"))),
+			);
+			menu.addItem((item) =>
+				item
+					.setTitle("Send to back")
+					.setIcon("send-to-back")
+					.onClick(() => this.run((c) => reorderSelection(c, "back"))),
+			);
+			if (shapes.length > 1 || hasGroup) menu.addSeparator();
+			if (shapes.length > 1) {
+				menu.addItem((item) =>
+					item.setTitle("Group").setIcon("group").onClick(() => this.run(groupSelection)),
+				);
+			}
+			if (hasGroup) {
+				menu.addItem((item) =>
+					item.setTitle("Ungroup").setIcon("ungroup").onClick(() => this.run(ungroupSelection)),
+				);
+			}
+		} else {
+			menu.addItem((item) =>
+				item
+					.setTitle("Paste")
+					.setIcon("clipboard-paste")
+					.setDisabled(!hasClipboard())
+					.onClick(() => this.run((c) => pasteClipboard(c))),
+			);
+			menu.addItem((item) =>
+				item
+					.setTitle("New slide")
+					.setIcon("file-plus")
+					.onClick(() => this.runSlide((c) => newSlide(c))),
+			);
+			menu.addItem((item) =>
+				item
+					.setTitle("Delete slide")
+					.setIcon("trash-2")
+					.setDisabled(!canDeleteSlide(ctx))
+					.onClick(() => this.run(deleteCurrentSlide)),
+			);
+		}
+		menu.showAtMouseEvent(event);
+	}
+
+	// ----------------------------------------------------------- shortcuts
+
 	private onKeyDown = (event: KeyboardEvent): void => {
 		if (!(event.metaKey || event.ctrlKey)) return;
 		const key = event.key.toLowerCase();
+
+		// Saving works even mid-edit; everything else would fight the caret.
 		if (key === "s") {
 			event.preventDefault();
 			event.stopPropagation();
 			void this.save();
-		} else if (key === "z") {
-			event.preventDefault();
-			event.stopPropagation();
-			if (event.shiftKey) this.redo();
-			else this.undo();
-		} else if (key === "y") {
-			event.preventDefault();
-			event.stopPropagation();
-			this.redo();
+			return;
 		}
+		if (this.editController?.isEditing) return;
+
+		const handlers: Record<string, () => void> = {
+			z: () => (event.shiftKey ? this.redo() : this.undo()),
+			y: () => this.redo(),
+			c: () => this.run(copySelection),
+			x: () => this.run(cutSelection),
+			v: () => this.run((ctx) => pasteClipboard(ctx)),
+			d: () => this.run(duplicateSelection),
+			a: () => {
+				this.shapeEditor?.selectAll();
+				this.ribbon?.update();
+			},
+		};
+		const handler = handlers[key];
+		if (!handler) return;
+		event.preventDefault();
+		event.stopPropagation();
+		handler();
 	};
 
 	undo(): void {
-		this.editor?.commit();
-		const entry = this.history.undo();
-		if (entry) this.applyEdit(entry.part);
+		this.editController?.commit();
+		this.deckEditor?.undo();
 	}
 
 	redo(): void {
-		this.editor?.commit();
-		const entry = this.history.redo();
-		if (entry) this.applyEdit(entry.part);
+		this.editController?.commit();
+		this.deckEditor?.redo();
 	}
 
-	/**
-	 * Mark a part dirty and rebuild the model from it. Undo and text edits both
-	 * replace XML nodes, which invalidates every element reference the model
-	 * holds, so the deck has to be re-derived rather than patched.
-	 */
-	private applyEdit(part: string): void {
-		if (!this.loaded) return;
-		this.loaded.pkg.markDirty(part);
-		this.loaded.deck = rebuildDeck(this.loaded.pkg, this.file?.basename ?? "Deck");
-		this.viewer?.setDeck(this.loaded.deck);
-		this.viewer?.setDirty(true);
-	}
+	// ---------------------------------------------------------------- save
 
 	async save(): Promise<void> {
 		const file = this.file;
 		const loaded = this.loaded;
 		if (!file || !loaded) return;
-		this.editor?.commit();
+		this.editController?.commit();
 		if (!loaded.pkg.isDirty) {
 			new Notice("No changes to save.");
 			return;
@@ -180,21 +426,18 @@ export class PptxView extends FileView {
 			this.baseMtime = file.stat.mtime;
 			this.plugin.decks.touch(file.path, file.stat.mtime, file.stat.size);
 			this.viewer?.setDirty(false);
+			this.ribbon?.update();
 			new Notice(
 				result.backupPath
 					? `Saved. A backup of the original is at ${result.backupPath}.`
 					: "Saved.",
 			);
 		} catch (error) {
-			if (error instanceof ConflictError) {
-				new Notice(error.message, 8000);
-			} else {
-				new Notice(`Could not save: ${(error as Error).message}`, 8000);
-			}
+			if (error instanceof ConflictError) new Notice(error.message, 8000);
+			else new Notice(`Could not save: ${(error as Error).message}`, 8000);
 		}
 	}
 
-	/** Export the slide currently on screen. Used by the command palette. */
 	async exportCurrentSlide(): Promise<void> {
 		if (!this.loaded || !this.viewer) return;
 		await this.plugin.exportSlidePng(this.loaded, this.file, this.viewer.currentSlideNumber);
@@ -215,10 +458,13 @@ export class PptxView extends FileView {
 	private teardown(): void {
 		this.contentEl.removeEventListener("keydown", this.onKeyDown, { capture: true });
 		this.viewer?.destroy();
+		this.ribbon?.destroy();
 		this.viewer = null;
-		this.editor = null;
+		this.ribbon = null;
+		this.editController = null;
 		this.shapeEditor = null;
-		this.history.clear();
+		this.deckEditor = null;
+		this.selection.clear();
 		this.loaded = null;
 	}
 }

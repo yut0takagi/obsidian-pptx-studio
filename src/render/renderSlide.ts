@@ -76,6 +76,7 @@ export function renderSlide(deck: Deck, slide: Slide, options: RenderOptions = {
 			// would move the same logo on every slide using that template.
 			if (shape.source && shape.sourcePart === slide.partPath) {
 				el.dataset.selectable = "1";
+				el.dataset.shapeId = shape.id;
 				shapeRegistry.set(el, shape);
 			}
 			root.appendChild(el);

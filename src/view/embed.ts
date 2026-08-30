@@ -70,7 +70,8 @@ class PptxEmbed extends MarkdownRenderChild {
 				pkg: loaded.pkg,
 				compact: true,
 				// A one-slide embed needs no chrome; a whole deck needs page controls.
-				controls: settings.embedControls && this.slideNumber === undefined,
+				chrome:
+					settings.embedControls && this.slideNumber === undefined ? "toolbar" : "none",
 				showThumbnails: false,
 				showNotes: false,
 				fitMode: "page",

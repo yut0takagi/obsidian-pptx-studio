@@ -43,6 +43,8 @@ export class PptxPackage {
 	private readonly objectUrls: string[] = [];
 	/** Parts whose parsed Document has been edited and must be re-serialised on save. */
 	private readonly dirtyParts = new Set<string>();
+	/** Set when parts are added, removed or swapped wholesale. */
+	private structuralChange = false;
 
 	private constructor(files: Record<string, Uint8Array>) {
 		this.files = files;
@@ -127,6 +129,11 @@ export class PptxPackage {
 		return map;
 	}
 
+	/** Forget cached relationship maps after a .rels part has been edited. */
+	invalidateRels(): void {
+		this.relsCache.clear();
+	}
+
 	/** Resolve one r:embed / r:id against a part's relationships. */
 	relTarget(partPath: string, id: string | null): string | null {
 		if (!id) return null;
@@ -178,18 +185,59 @@ export class PptxPackage {
 	}
 
 	/**
-	 * Mark a part as edited. The part must already have been read through xml(),
-	 * because the cached Document is what gets written back.
+	 * Mark a part as edited. Parts mutated through their parsed Document are
+	 * re-serialised on save; parts swapped wholesale via replacePart already hold
+	 * their new bytes.
 	 */
 	markDirty(path: string): void {
-		if (!this.xmlCache.get(path)) {
-			throw new Error(`Cannot mark ${path} dirty: it has not been parsed.`);
-		}
 		this.dirtyParts.add(path);
 	}
 
 	get isDirty(): boolean {
-		return this.dirtyParts.size > 0;
+		return this.dirtyParts.size > 0 || this.structuralChange;
+	}
+
+	/** Every part path in the package. */
+	partPaths(): string[] {
+		return Object.keys(this.files);
+	}
+
+	/**
+	 * The current bytes of a part, including edits made to its parsed Document.
+	 * Returns null when the part does not exist — which is a meaningful value for
+	 * undo, where "this part was not here" has to round trip.
+	 */
+	serializePart(path: string): Uint8Array | null {
+		const doc = this.xmlCache.get(path);
+		if (doc) {
+			const body = new XMLSerializer()
+				.serializeToString(doc)
+				.replace(/^\s*<\?xml[^?]*\?>\s*/, "");
+			return new TextEncoder().encode(XML_DECL + body);
+		}
+		return this.files[path] ?? null;
+	}
+
+	/**
+	 * Replace a part's bytes, or remove it entirely with null. Every cache for the
+	 * part is dropped, so the next read re-parses. Element references into the old
+	 * Document are invalidated, which is why callers rebuild the model afterwards.
+	 */
+	replacePart(path: string, bytes: Uint8Array | null): void {
+		if (bytes === null) delete this.files[path];
+		else this.files[path] = bytes;
+		this.xmlCache.delete(path);
+		this.dirtyParts.delete(path);
+		// Relationship lookups are keyed by owning part, and a replaced .rels part
+		// invalidates its owner's entry, so the simplest correct move is to drop all.
+		this.relsCache.clear();
+		this.structuralChange = true;
+	}
+
+	/** Register a new part, failing loudly rather than silently overwriting. */
+	addPart(path: string, bytes: Uint8Array): void {
+		if (this.files[path]) throw new Error(`Part already exists: ${path}`);
+		this.replacePart(path, bytes);
 	}
 
 	get dirtyPartPaths(): string[] {
@@ -198,6 +246,7 @@ export class PptxPackage {
 
 	clearDirty(): void {
 		this.dirtyParts.clear();
+		this.structuralChange = false;
 	}
 
 	/**
@@ -237,6 +286,7 @@ export class PptxPackage {
 	/** Release every object URL handed out by mediaUrl(). */
 	dispose(): void {
 		this.dirtyParts.clear();
+		this.structuralChange = false;
 		for (const url of this.objectUrls) URL.revokeObjectURL(url);
 		this.objectUrls.length = 0;
 		this.urlCache.clear();

@@ -1,3 +1,4 @@
+import { parseFrame } from "../pptx/geometry";
 import type { Frame, Shape } from "../pptx/types";
 import { EMU_PER_PX } from "../pptx/types";
 import { child } from "../pptx/xml";
@@ -35,10 +36,14 @@ function transformHost(source: Element): { host: Element; ns: string; after: str
  * own; moving it creates one, which is exactly what PowerPoint does.
  */
 export function writeShapeFrame(shape: Shape, frame: Frame): string | null {
-	const source = shape.source;
-	if (!source) return null;
+	if (!shape.source) return null;
+	return writeFrame(shape.source, frame) ? shape.sourcePart : null;
+}
+
+/** Write position and size onto a shape element. Returns false if it has no home for one. */
+export function writeFrame(source: Element, frame: { x: number; y: number; w: number; h: number }): boolean {
 	const target = transformHost(source);
-	if (!target) return null;
+	if (!target) return false;
 
 	const doc = source.ownerDocument;
 	const prefix = target.ns === P_NS ? "p" : "a";
@@ -65,5 +70,12 @@ export function writeShapeFrame(shape: Shape, frame: Frame): string | null {
 	ext.setAttribute("cx", String(emu(Math.max(frame.w, 0))));
 	ext.setAttribute("cy", String(emu(Math.max(frame.h, 0))));
 
-	return shape.sourcePart;
+	return true;
+}
+
+/** Read a shape element's own frame, ignoring anything it inherits. */
+export function readFrame(source: Element): Frame | null {
+	const target = transformHost(source);
+	if (!target) return null;
+	return parseFrame(child(target.host, "xfrm"));
 }

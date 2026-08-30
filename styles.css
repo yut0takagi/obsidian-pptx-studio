@@ -273,3 +273,233 @@
 	overflow: hidden;
 	min-height: 120px;
 }
+
+/* --------------------------------------------------------------- ribbon */
+
+.pptx-ribbon {
+	flex: 0 0 auto;
+	background: var(--background-primary);
+	border-bottom: 1px solid var(--background-modifier-border);
+	user-select: none;
+}
+
+.pptx-ribbon-tabs {
+	display: flex;
+	gap: 2px;
+	padding: 4px 6px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.pptx-ribbon-tab {
+	appearance: none;
+	background: transparent;
+	border: none;
+	border-bottom: 2px solid transparent;
+	border-radius: var(--radius-s) var(--radius-s) 0 0;
+	padding: 4px 12px;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	cursor: pointer;
+	box-shadow: none;
+}
+
+.pptx-ribbon-tab:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.pptx-ribbon-tab.is-active {
+	color: var(--text-normal);
+	border-bottom-color: var(--interactive-accent);
+	font-weight: var(--font-medium);
+}
+
+.pptx-ribbon-body {
+	display: flex;
+	align-items: stretch;
+	gap: 0;
+	padding: 4px 6px;
+	overflow-x: auto;
+}
+
+.pptx-ribbon-group {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	padding: 0 8px;
+	min-width: 0;
+}
+
+.pptx-ribbon-row {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex-wrap: wrap;
+	min-height: 28px;
+}
+
+.pptx-ribbon-group-title {
+	font-size: 10px;
+	color: var(--text-faint);
+	text-align: center;
+	padding-top: 2px;
+	white-space: nowrap;
+}
+
+.pptx-ribbon-divider {
+	width: 1px;
+	background: var(--background-modifier-border);
+	margin: 2px 0 14px;
+	flex: 0 0 auto;
+}
+
+.pptx-ribbon-btn {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	border-radius: var(--radius-s);
+	padding: 4px 6px;
+	height: 26px;
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: var(--font-ui-smaller);
+	white-space: nowrap;
+}
+
+.pptx-ribbon-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+.pptx-ribbon-btn.is-active {
+	background: var(--background-modifier-active-hover, var(--background-modifier-hover));
+	color: var(--text-accent);
+}
+
+.pptx-ribbon-btn.is-disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.pptx-ribbon-btn.is-disabled:hover {
+	background: transparent;
+}
+
+.pptx-ribbon-icon {
+	display: inline-flex;
+	align-items: center;
+}
+
+.pptx-ribbon-icon .svg-icon {
+	width: 16px;
+	height: 16px;
+}
+
+.pptx-ribbon-caret .svg-icon {
+	width: 11px;
+	height: 11px;
+	opacity: 0.6;
+}
+
+.pptx-ribbon-sep {
+	width: 1px;
+	align-self: stretch;
+	background: var(--background-modifier-border);
+	margin: 2px 4px;
+}
+
+.pptx-ribbon-select {
+	height: 26px;
+	font-size: var(--font-ui-smaller);
+	padding: 0 4px;
+}
+
+/* The swatch under a colour button shows what clicking it would apply. */
+.pptx-ribbon-color {
+	flex-direction: column;
+	gap: 1px;
+	padding-bottom: 2px;
+}
+
+.pptx-ribbon-swatch {
+	width: 16px;
+	height: 3px;
+	border-radius: 1px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.pptx-ribbon-swatch.is-none {
+	background: repeating-linear-gradient(
+		45deg,
+		var(--background-primary) 0 2px,
+		var(--text-faint) 2px 3px
+	);
+}
+
+.pptx-color-popup {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	box-shadow: var(--shadow-s);
+	padding: 8px;
+	z-index: var(--layer-menu);
+}
+
+.pptx-color-grid {
+	display: grid;
+	grid-template-columns: repeat(5, 20px);
+	gap: 4px;
+}
+
+.pptx-color-cell {
+	width: 20px;
+	height: 20px;
+	border-radius: 3px;
+	border: 1px solid var(--background-modifier-border);
+	cursor: pointer;
+}
+
+.pptx-color-cell:hover {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
+}
+
+.pptx-color-option {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 6px;
+	padding: 4px;
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-smaller);
+	cursor: pointer;
+}
+
+.pptx-color-option:hover {
+	background: var(--background-modifier-hover);
+}
+
+/* ----------------------------------------------------------- status bar */
+
+.pptx-statusbar {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: 2px var(--size-4-2);
+	border-top: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	flex: 0 0 auto;
+}
+
+.pptx-suggest-note {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+}
+
+/* Marquee and multi-selection outlines. */
+.pptx-marquee {
+	pointer-events: none;
+}

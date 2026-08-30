@@ -16,10 +16,17 @@ alongside it.
   Only the slide XML you touched is rewritten; every other part of the file is
   repacked byte for byte, so animations, transitions, embedded fonts and any
   formatting this plugin does not model survive untouched.
-- **Move and resize shapes** — click to select, drag to move, drag a handle to
-  resize, arrow keys to nudge. Edges and centres snap to the other shapes and to
-  the slide, with guides; hold `Alt` to override. Undo and redo cover both text
-  and geometry.
+- **Edit like PowerPoint** — a tabbed ribbon (Home, Insert, Format, View) over a
+  slide canvas with multi-select, marquee selection, drag and resize, snapping
+  guides, clipboard, z-order, align and distribute, group and ungroup, and a
+  right-click menu.
+- **Format** — font and size, bold/italic/underline/strikethrough, text colour,
+  alignment, bullets and numbering, list level, line spacing, vertical anchor,
+  shape fill and outline. With text selected the change applies to exactly those
+  characters; with only the shape selected it applies to all of its text.
+- **Insert** — text boxes, twelve shape presets, lines, pictures from the vault,
+  and tables.
+- **Slides** — add from any layout, duplicate, delete, reorder.
 - **Embed slides in notes** — `![[deck.pptx]]` embeds the deck, `![[deck.pptx#3]]`
   pins a single slide.
 - **Extract to Markdown** — turn a deck into an outline note so its content is
@@ -39,6 +46,12 @@ alongside it.
 | `Esc` | cancel an edit, or clear the selection |
 | `Cmd`/`Ctrl` + `Enter` | finish an edit |
 | arrow keys (with a shape selected) | nudge 1px, `Shift` for 10px |
+| click / `Shift`+click / drag on empty canvas | select, extend, marquee |
+| `Cmd`/`Ctrl` + `A` | select every shape on the slide |
+| `Cmd`/`Ctrl` + `C` / `X` / `V` / `D` | copy, cut, paste, duplicate |
+| `Delete` | delete the selection |
+| `Alt` while dragging | ignore snapping |
+| `Shift` while resizing a corner | keep the aspect ratio |
 | `Cmd`/`Ctrl` + `Z` / `Shift+Z` | undo / redo |
 | `Cmd`/`Ctrl` + `S` | save |
 
@@ -69,6 +82,13 @@ them — collapses it onto the formatting of its first run.
 Moving a placeholder that inherited its position writes a new `a:xfrm` onto the
 slide, which is what PowerPoint does too.
 
+Undo and redo work on whole package parts rather than on individual elements. An
+edit that adds a part — inserting a picture, adding a slide — cannot be expressed
+as a change to an element, so recording parts is what lets one mechanism cover
+every command and guarantees undo lands on a state the parser has already
+accepted. The test suite asserts exactly that: after running all sixteen editor
+commands and undoing them, every part is byte-identical to where it started.
+
 The first time you save a deck, a one-off copy is written beside it as
 `<name>.pptx.bak`. Binary files do not go through Obsidian's file recovery, so
 that copy is your undo of last resort.
@@ -87,6 +107,7 @@ npm run smoke -- ~/Downloads/*.pptx   # parse + save round trip against real dec
 
 The smoke test runs the parser *and the renderer* under Node with jsdom, then
 drives the same code paths the UI does: it edits a run in the rendered DOM,
-deletes a paragraph, moves and resizes shapes, and undoes and redoes — checking
-after each that the deck can be repackaged, re-read, and comes back with exactly
-the change that was made and nothing else.
+deletes a paragraph, moves and resizes shapes, inserts text boxes, shapes,
+tables and pictures, groups and ungroups, reorders, aligns, formats, adds,
+duplicates, reorders and deletes slides — then undoes the lot and checks the
+package came back byte-for-byte.

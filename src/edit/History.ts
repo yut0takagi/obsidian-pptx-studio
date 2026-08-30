@@ -1,52 +1,34 @@
+import type { PptxPackage } from "../pptx/package";
+
 /**
- * Undo/redo for deck edits.
- *
- * Every edit is a mutation of one shape's XML subtree, so a snapshot of that
- * subtree is a complete, self-contained record of it. That keeps one mechanism
- * covering both text and geometry, and means undo can never leave the XML in a
- * state the parser has not seen.
+ * A set of package parts and the bytes they should hold. `null` means the part
+ * is absent, which is how part creation and deletion round trip.
  */
-export interface Snapshot {
-	target: Element;
-	attributes: [string, string][];
-	children: Node[];
-}
+export type PartsPatch = Record<string, Uint8Array | null>;
 
 export interface HistoryEntry {
 	label: string;
-	/** Package part the snapshot's element lives in. */
-	part: string;
-	before: Snapshot;
-	after: Snapshot;
+	before: PartsPatch;
+	after: PartsPatch;
 }
 
-export function capture(target: Element): Snapshot {
-	return {
-		target,
-		attributes: Array.from(target.attributes).map((a) => [a.name, a.value] as [string, string]),
-		children: Array.from(target.childNodes).map((n) => n.cloneNode(true)),
-	};
-}
-
-function restore(snapshot: Snapshot): void {
-	const { target } = snapshot;
-	while (target.firstChild) target.removeChild(target.firstChild);
-	for (const name of Array.from(target.attributes).map((a) => a.name)) {
-		target.removeAttribute(name);
-	}
-	for (const [name, value] of snapshot.attributes) target.setAttribute(name, value);
-	for (const node of snapshot.children) target.appendChild(node.cloneNode(true));
-}
-
-export class ElementHistory {
+/**
+ * Undo/redo at the level of whole package parts.
+ *
+ * An earlier version snapshotted the edited element's XML subtree, which is
+ * cheaper but cannot express an edit that adds or removes a part — inserting a
+ * picture, adding a slide. Recording parts instead covers every edit the editor
+ * can make with one mechanism, and guarantees undo lands on a state the parser
+ * has already accepted.
+ */
+export class History {
 	private readonly past: HistoryEntry[] = [];
 	private readonly future: HistoryEntry[] = [];
 
-	constructor(private readonly limit = 100) {}
+	constructor(private readonly limit = 60) {}
 
-	/** Record an edit, given the snapshot taken before it was applied. */
-	record(label: string, part: string, before: Snapshot): void {
-		this.past.push({ label, part, before, after: capture(before.target) });
+	record(entry: HistoryEntry): void {
+		this.past.push(entry);
 		this.future.length = 0;
 		if (this.past.length > this.limit) this.past.shift();
 	}
@@ -59,19 +41,26 @@ export class ElementHistory {
 		return this.future.length > 0;
 	}
 
-	/** Undo the last edit. Returns the part that changed, or null if there was none. */
-	undo(): HistoryEntry | null {
+	get undoLabel(): string | null {
+		return this.past.at(-1)?.label ?? null;
+	}
+
+	get redoLabel(): string | null {
+		return this.future.at(-1)?.label ?? null;
+	}
+
+	undo(pkg: PptxPackage): HistoryEntry | null {
 		const entry = this.past.pop();
 		if (!entry) return null;
-		restore(entry.before);
+		applyPatch(pkg, entry.before);
 		this.future.push(entry);
 		return entry;
 	}
 
-	redo(): HistoryEntry | null {
+	redo(pkg: PptxPackage): HistoryEntry | null {
 		const entry = this.future.pop();
 		if (!entry) return null;
-		restore(entry.after);
+		applyPatch(pkg, entry.after);
 		this.past.push(entry);
 		return entry;
 	}
@@ -79,5 +68,12 @@ export class ElementHistory {
 	clear(): void {
 		this.past.length = 0;
 		this.future.length = 0;
+	}
+}
+
+function applyPatch(pkg: PptxPackage, patch: PartsPatch): void {
+	for (const [path, bytes] of Object.entries(patch)) {
+		pkg.replacePart(path, bytes);
+		if (bytes !== null) pkg.markDirty(path);
 	}
 }
