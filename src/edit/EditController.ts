@@ -1,3 +1,5 @@
+import { type ElementHistory, type Snapshot, capture } from "./History";
+import { textBodyRegistry } from "../render/renderSlide";
 import { commitTextBody } from "./textEdit";
 
 export interface EditControllerOptions {
@@ -10,6 +12,8 @@ export interface EditControllerOptions {
 	onFinish: (changedPart: string | null) => void;
 	/** Editing is off in embeds and while the file is read-only. */
 	isEnabled: () => boolean;
+	/** Text edits are recorded here so undo covers them alongside geometry. */
+	history: ElementHistory;
 }
 
 /**
@@ -23,6 +27,8 @@ export class EditController {
 	private activeBox: HTMLElement | null = null;
 	private originalHtml = "";
 	private composing = false;
+	/** The shape's XML as it was before this edit session began. */
+	private snapshot: Snapshot | null = null;
 
 	constructor(private readonly options: EditControllerOptions) {}
 
@@ -55,6 +61,9 @@ export class EditController {
 	private begin(box: HTMLElement, event: MouseEvent): void {
 		this.activeBox = box;
 		this.originalHtml = box.innerHTML;
+		// a:txBody's parent is the shape, which is the unit undo works in.
+		const owner = textBodyRegistry.get(box)?.source?.parentNode;
+		this.snapshot = owner instanceof Element ? capture(owner) : null;
 		box.contentEditable = "true";
 		box.spellcheck = false;
 		box.addClass("is-editing");
@@ -114,8 +123,12 @@ export class EditController {
 	commit(): boolean {
 		const box = this.activeBox;
 		if (!box) return false;
+		const snapshot = this.snapshot;
 		this.teardown(box);
 		const result = commitTextBody(box);
+		if (result.changed && result.part && snapshot) {
+			this.options.history.record("Edit text", result.part, snapshot);
+		}
 		this.options.onFinish(result.changed ? result.part : null);
 		return result.changed;
 	}
@@ -140,5 +153,6 @@ export class EditController {
 		this.activeBox = null;
 		this.originalHtml = "";
 		this.composing = false;
+		this.snapshot = null;
 	}
 }

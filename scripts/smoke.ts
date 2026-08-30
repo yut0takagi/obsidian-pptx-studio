@@ -1,58 +1,40 @@
 /**
- * Node smoke test for the parser and the save round trip.
- *
- * The renderer needs a browser, but everything up to it — unzip, relationships,
- * theme resolution, placeholder inheritance, text extraction and repackaging —
- * is pure data manipulation, so it can be exercised against real decks here.
+ * Smoke test for the parser, the renderer and the edit write-back.
  *
  *   npm run smoke -- ~/Downloads/*.pptx
+ *
+ * The edit test goes through the same path the UI does — render the slide,
+ * change text in the rendered DOM, commit — rather than editing XML directly,
+ * so it would catch a break anywhere between the two.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
+import { installDom } from "./dom-shim";
 
-installDomShims();
+installDom();
 
+import { commitTextBody } from "../src/edit/textEdit";
+import { writeShapeFrame } from "../src/edit/geometryWrite";
+import { ElementHistory, capture } from "../src/edit/History";
 import { parseDeck } from "../src/pptx/parse";
-import type { Shape, TextBody } from "../src/pptx/types";
+import type { PptxPackage } from "../src/pptx/package";
+import { renderSlide } from "../src/render/renderSlide";
+import { shapeRegistry, textBodyRegistry } from "../src/render/renderSlide";
+import type { Deck, Shape, Slide, TextBody } from "../src/pptx/types";
 
-/** xmldom implements the core DOM but not the element-traversal conveniences. */
-function installDomShims(): void {
-	const g = globalThis as Record<string, unknown>;
-	g.DOMParser = DOMParser;
-	g.XMLSerializer = XMLSerializer;
+let failures = 0;
 
-	const probe = new DOMParser().parseFromString("<a/>", "application/xml");
-	const proto = Object.getPrototypeOf(probe.documentElement) as object;
-	if (!("firstElementChild" in proto)) {
-		Object.defineProperties(proto, {
-			firstElementChild: {
-				get(this: Node) {
-					for (let n = this.firstChild; n; n = n.nextSibling) {
-						if (n.nodeType === 1) return n;
-					}
-					return null;
-				},
-			},
-			nextElementSibling: {
-				get(this: Node) {
-					for (let n = this.nextSibling; n; n = n.nextSibling) {
-						if (n.nodeType === 1) return n;
-					}
-					return null;
-				},
-			},
-		});
-	}
-
-	if (typeof (g.URL as { createObjectURL?: unknown }).createObjectURL !== "function") {
-		(g.URL as { createObjectURL: (b: unknown) => string }).createObjectURL = () =>
-			"blob:stub";
-		(g.URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = () => undefined;
-	}
+function fail(message: string): void {
+	console.log(`    FAIL: ${message}`);
+	failures++;
 }
+
+function pass(message: string): void {
+	console.log(`    ok: ${message}`);
+}
+
+// ------------------------------------------------------------------ helpers
 
 function countShapes(shapes: Shape[]): number {
 	let total = 0;
@@ -81,90 +63,323 @@ function collectText(shapes: Shape[]): string[] {
 	return out;
 }
 
-function check(path: string): boolean {
+function deckText(deck: Deck): string {
+	return deck.slides.flatMap((s) => collectText(s.shapes)).join(" ");
+}
+
+/**
+ * Render every slide and return the first editable text box matching a
+ * predicate, so each test can ask for the shape of content it needs.
+ */
+function findEditableBox(
+	deck: Deck,
+	predicate: (body: TextBody, box: HTMLElement) => boolean,
+): { slide: Slide; box: HTMLElement } | null {
+	for (const slide of deck.slides) {
+		const el = renderSlide(deck, slide);
+		for (const box of Array.from(el.querySelectorAll<HTMLElement>('[data-editable="1"]'))) {
+			const body = textBodyRegistry.get(box);
+			if (body && predicate(body, box)) return { slide, box };
+		}
+	}
+	return null;
+}
+
+const hasText = (body: TextBody) =>
+	body.paragraphs.some((p) => p.runs.some((r) => r.text.trim() !== ""));
+
+function reopen(pkg: PptxPackage, name: string): Deck {
+	const bytes = pkg.toZip();
+	const out = join(tmpdir(), `pptx-smoke-${Date.now()}-${Math.random().toString(36).slice(2)}.pptx`);
+	writeFileSync(out, bytes);
+	const { deck, pkg: reopened } = parseDeck(readFileSync(out), name);
+	reopened.dispose();
+	return deck;
+}
+
+// -------------------------------------------------------------------- tests
+
+function checkDeck(path: string): void {
 	const name = basename(path);
-	let ok = true;
+	console.log(`  ${name}`);
 	try {
 		const { deck, pkg } = parseDeck(readFileSync(path), name);
 		const shapes = deck.slides.reduce((n, s) => n + countShapes(s.shapes), 0);
 		const text = deck.slides.flatMap((s) => collectText(s.shapes.slice(s.templateShapes)));
 		const chars = text.join("").length;
-		const notes = deck.slides.filter((s) => s.notes).length;
 
 		console.log(
-			`  ${name}\n` +
-				`    ${deck.slides.length} slides · ${Math.round(deck.width)}x${Math.round(deck.height)}px · ` +
-				`${shapes} shapes · ${chars} chars of text · ${notes} with notes`,
+			`    ${deck.slides.length} slides · ${Math.round(deck.width)}x${Math.round(deck.height)}px · ` +
+				`${shapes} shapes · ${chars} chars · ${deck.slides.filter((s) => s.notes).length} with notes`,
 		);
 
-		if (deck.slides.length === 0) {
-			console.log("    FAIL: no slides parsed");
-			ok = false;
-		}
-		if (chars === 0) {
-			console.log("    WARN: no text extracted");
-		}
-		const sample = text.find((t) => t.length > 4);
-		if (sample) console.log(`    first text: ${JSON.stringify(sample.slice(0, 60))}`);
+		if (deck.slides.length === 0) fail("no slides parsed");
 
-		// Round trip: repackage untouched and confirm the result still parses.
-		const rezipped = pkg.toZip();
-		const reopened = parseDeck(rezipped, name);
-		if (reopened.deck.slides.length !== deck.slides.length) {
-			console.log(
-				`    FAIL: round trip changed slide count ` +
-					`(${deck.slides.length} -> ${reopened.deck.slides.length})`,
-			);
-			ok = false;
+		// Rendering must not throw, and must produce something for every slide.
+		for (const slide of deck.slides) {
+			const el = renderSlide(deck, slide);
+			if (slide.shapes.length > 0 && el.childElementCount === 0) {
+				fail(`slide ${slide.index} rendered no elements from ${slide.shapes.length} shapes`);
+			}
 		}
-		reopened.pkg.dispose();
+
+		const rebuilt = reopen(pkg, name);
+		if (rebuilt.slides.length !== deck.slides.length) {
+			fail(`repackaging changed the slide count (${deck.slides.length} -> ${rebuilt.slides.length})`);
+		}
 		pkg.dispose();
 	} catch (error) {
-		console.log(`  ${name}\n    FAIL: ${(error as Error).message}`);
-		ok = false;
+		fail((error as Error).message);
 	}
-	return ok;
 }
 
-/** Edit the first run of the first text box, save, reopen and verify. */
-function checkEditRoundTrip(path: string): boolean {
+/** Edit one run through the rendered DOM and confirm it survives a save. */
+function checkRunEdit(path: string): void {
 	const name = basename(path);
 	const { deck, pkg } = parseDeck(readFileSync(path), name);
 	try {
-		for (const slide of deck.slides) {
-			for (const shape of slide.shapes.slice(slide.templateShapes)) {
-				if (shape.kind !== "shape" || !shape.text?.source) continue;
-				const para = shape.text.paragraphs.find((p) => p.runs.some((r) => r.source));
-				const run = para?.runs.find((r) => r.source);
-				if (!run?.source) continue;
-
-				const marker = "SMOKE-TEST-EDIT";
-				const target = run.source.getElementsByTagName("a:t")[0];
-				if (!target) continue;
-				target.textContent = marker;
-				pkg.markDirty(shape.text.sourcePart);
-
-				const out = join(tmpdir(), `pptx-smoke-${Date.now()}.pptx`);
-				writeFileSync(out, pkg.toZip());
-				const reopened = parseDeck(readFileSync(out), name);
-				const found = reopened.deck.slides.some((s) =>
-					collectText(s.shapes).some((t) => t.includes(marker)),
-				);
-				reopened.pkg.dispose();
-				console.log(
-					found
-						? `    edit round trip: OK (wrote ${marker} into ${shape.text.sourcePart})`
-						: `    FAIL: edit did not survive the round trip`,
-				);
-				return found;
-			}
+		// Prefer a paragraph with several runs: that is where run matching matters.
+		const found =
+			findEditableBox(
+				deck,
+				(body) =>
+					hasText(body) && body.paragraphs.some((p) => p.runs.filter((r) => r.text.trim()).length > 1),
+			) ?? findEditableBox(deck, hasText);
+		if (!found) {
+			console.log("    skipped: no editable text");
+			return;
 		}
-		console.log("    edit round trip: skipped (no editable text found)");
-		return true;
+		const box = found.box;
+		const body = textBodyRegistry.get(box);
+		const spans = Array.from(box.querySelectorAll<HTMLElement>("[data-run]")).filter(
+			(s) => (s.textContent ?? "").trim() !== "",
+		);
+		// Edit inside a paragraph that has neighbours, so the preservation check bites.
+		const span =
+			spans.find(
+				(s) =>
+					Array.from(
+						(s.parentElement as HTMLElement).querySelectorAll<HTMLElement>("[data-run]"),
+					).filter((n) => (n.textContent ?? "").trim() !== "").length > 1,
+			) ?? spans[0];
+		if (!body || !span) {
+			console.log("    skipped: no run to edit");
+			return;
+		}
+
+		const siblings = Array.from(
+			(span.parentElement as HTMLElement).querySelectorAll<HTMLElement>("[data-run]"),
+		)
+			.filter((s) => s !== span)
+			.map((s) => s.textContent ?? "");
+
+		const marker = "EDITED-RUN";
+		span.textContent = marker;
+
+		const result = commitTextBody(box);
+		if (!result.changed || !result.part) {
+			fail("commitTextBody reported no change after editing a run");
+			return;
+		}
+		pkg.markDirty(result.part);
+
+		const saved = reopen(pkg, name);
+		if (!deckText(saved).includes(marker)) fail("the edited run did not survive the save");
+		else pass(`edited run written into ${result.part} and read back`);
+
+		// PPTX_SMOKE_OUT lets a caller keep the edited deck so it can be opened in
+		// a real OOXML consumer, which is the only check that matters in the end.
+		const keep = process.env.PPTX_SMOKE_OUT;
+		if (keep) {
+			writeFileSync(keep, pkg.toZip());
+			console.log(`    wrote edited deck to ${keep}`);
+		}
+
+		// Runs the user did not touch must come back unchanged: that is what keeps
+		// mixed formatting inside a paragraph intact.
+		const savedText = deckText(saved);
+		const lost = siblings.filter((t) => t.trim() !== "" && !savedText.includes(t.trim()));
+		if (lost.length > 0) fail(`sibling runs were lost: ${JSON.stringify(lost)}`);
+		else if (siblings.length > 0) pass(`${siblings.length} untouched sibling run(s) preserved`);
 	} finally {
 		pkg.dispose();
 	}
 }
+
+/** Delete a paragraph in the DOM and confirm the a:p is removed from the XML. */
+function checkParagraphDelete(path: string): void {
+	const name = basename(path);
+	const { deck, pkg } = parseDeck(readFileSync(path), name);
+	try {
+		const found = findEditableBox(
+			deck,
+			(body) => hasText(body) && body.paragraphs.filter((p) => p.runs.some((r) => r.text.trim())).length > 1,
+		);
+		if (!found) {
+			console.log("    skipped: no multi-paragraph text box");
+			return;
+		}
+		const box = found.box;
+		const before = textBodyRegistry.get(box)!.paragraphs.length;
+		const removed = box.children[before - 1];
+		if (!removed) {
+			console.log("    skipped: paragraph elements and model are out of step");
+			return;
+		}
+		const removedText = (removed.textContent ?? "").trim();
+		removed.remove();
+
+		const result = commitTextBody(box);
+		if (!result.part) {
+			fail("deleting a paragraph reported no change");
+			return;
+		}
+		pkg.markDirty(result.part);
+
+		const saved = reopen(pkg, name);
+		const savedBox = saved.slides
+			.flatMap((s) => s.shapes)
+			.find((s) => s.kind === "shape" && s.text?.sourcePart === result.part && s.text.paragraphs.length === before - 1);
+
+		if (!savedBox) fail(`paragraph count did not drop from ${before} to ${before - 1}`);
+		else if (removedText && deckText(saved).includes(removedText)) {
+			fail("the deleted paragraph's text is still present");
+		} else pass(`paragraph removed (${before} -> ${before - 1})`);
+	} finally {
+		pkg.dispose();
+	}
+}
+
+/** Move and resize shapes through the same call the drag handler makes. */
+function checkGeometryEdit(path: string): void {
+	const name = basename(path);
+	const { deck, pkg } = parseDeck(readFileSync(path), name);
+	try {
+		// A shape with its own a:xfrm, and a placeholder that inherits one: the
+		// second is the interesting case, since moving it must create the element.
+		let explicit: { shape: Shape; slide: Slide } | null = null;
+		let inherited: { shape: Shape; slide: Slide } | null = null;
+
+		for (const slide of deck.slides) {
+			const el = renderSlide(deck, slide);
+			for (const node of Array.from(el.querySelectorAll<HTMLElement>('[data-selectable="1"]'))) {
+				const shape = shapeRegistry.get(node);
+				if (!shape?.source) continue;
+				const hasXfrm = shape.source.getElementsByTagName("a:xfrm").length > 0;
+				if (hasXfrm && !explicit) explicit = { shape, slide };
+				if (!hasXfrm && !inherited) inherited = { shape, slide };
+			}
+			if (explicit && inherited) break;
+		}
+
+		for (const [label, found] of [
+			["explicit a:xfrm", explicit],
+			["inherited frame", inherited],
+		] as const) {
+			if (!found) {
+				console.log(`    skipped: no shape with an ${label}`);
+				continue;
+			}
+			const { shape, slide } = found;
+			const target = { ...shape.frame, x: 111, y: 222, w: 333, h: 144 };
+			const part = writeShapeFrame(shape, target);
+			if (!part) {
+				fail(`writeShapeFrame refused a ${shape.kind} with an ${label}`);
+				continue;
+			}
+			pkg.markDirty(part);
+
+			const saved = reopen(pkg, name);
+			const savedShape = saved.slides[slide.index - 1]?.shapes.find((s) => s.id === shape.id);
+			if (!savedShape) {
+				fail(`shape ${shape.id} disappeared after moving it (${label})`);
+				continue;
+			}
+			const f = savedShape.frame;
+			const close = (a: number, b: number) => Math.abs(a - b) < 0.5;
+			if (close(f.x, 111) && close(f.y, 222) && close(f.w, 333) && close(f.h, 144)) {
+				pass(`${label}: ${shape.kind} moved and resized, read back exactly`);
+			} else {
+				fail(
+					`${label}: expected 111,222 333x144 but read back ` +
+						`${f.x.toFixed(1)},${f.y.toFixed(1)} ${f.w.toFixed(1)}x${f.h.toFixed(1)}`,
+				);
+			}
+		}
+	} finally {
+		pkg.dispose();
+	}
+}
+
+/** Undo must put the XML back exactly, and redo must put the edit back. */
+function checkUndoRedo(path: string): void {
+	const name = basename(path);
+	const { deck, pkg } = parseDeck(readFileSync(path), name);
+	try {
+		let subject: { shape: Shape; slide: Slide } | null = null;
+		for (const slide of deck.slides) {
+			const el = renderSlide(deck, slide);
+			for (const node of Array.from(el.querySelectorAll<HTMLElement>('[data-selectable="1"]'))) {
+				const shape = shapeRegistry.get(node);
+				if (shape?.source && shape.frame.w > 0) {
+					subject = { shape, slide };
+					break;
+				}
+			}
+			if (subject) break;
+		}
+		if (!subject) {
+			console.log("    skipped: no selectable shape");
+			return;
+		}
+
+		const { shape, slide } = subject;
+		const original = { ...shape.frame };
+		const history = new ElementHistory();
+		const snapshot = capture(shape.source!);
+
+		const part = writeShapeFrame(shape, { ...shape.frame, x: 500, y: 400 });
+		if (!part) {
+			fail("writeShapeFrame refused the subject shape");
+			return;
+		}
+		history.record("Move shape", part, snapshot);
+		pkg.markDirty(part);
+
+		const read = (): Shape | undefined =>
+			reopen(pkg, name).slides[slide.index - 1]?.shapes.find((s) => s.id === shape.id);
+
+		const moved = read();
+		if (!moved || Math.abs(moved.frame.x - 500) > 0.5) {
+			fail("the move did not take effect");
+			return;
+		}
+
+		history.undo();
+		const undone = read();
+		if (!undone) {
+			fail("the shape disappeared after undo");
+			return;
+		}
+		if (Math.abs(undone.frame.x - original.x) > 0.5 || Math.abs(undone.frame.y - original.y) > 0.5) {
+			fail(
+				`undo left the shape at ${undone.frame.x.toFixed(1)},${undone.frame.y.toFixed(1)} ` +
+					`instead of ${original.x.toFixed(1)},${original.y.toFixed(1)}`,
+			);
+			return;
+		}
+		pass("undo restored the original position");
+
+		history.redo();
+		const redone = read();
+		if (!redone || Math.abs(redone.frame.x - 500) > 0.5) fail("redo did not reapply the move");
+		else pass("redo reapplied the move");
+	} finally {
+		pkg.dispose();
+	}
+}
+
+// --------------------------------------------------------------------- main
 
 const files = process.argv.slice(2);
 if (files.length === 0) {
@@ -172,13 +387,16 @@ if (files.length === 0) {
 	process.exit(2);
 }
 
-console.log(`Checking ${files.length} deck(s)\n`);
-let failures = 0;
-for (const file of files) {
-	if (!check(file)) failures++;
-}
-console.log("\nEdit round trip on the first deck:");
-if (!checkEditRoundTrip(files[0])) failures++;
+console.log(`Parsing and rendering ${files.length} deck(s)\n`);
+for (const file of files) checkDeck(file);
+
+console.log(`\nEditing ${basename(files[0])} through the rendered DOM:`);
+checkRunEdit(files[0]);
+checkParagraphDelete(files[0]);
+
+console.log(`\nMoving and resizing shapes in ${basename(files[0])}:`);
+checkGeometryEdit(files[0]);
+checkUndoRedo(files[0]);
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

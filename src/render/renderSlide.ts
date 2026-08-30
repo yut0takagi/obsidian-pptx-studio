@@ -30,6 +30,8 @@ const FONT_FALLBACK =
 export const textBodyRegistry = new WeakMap<HTMLElement, TextBody>();
 export const paragraphRegistry = new WeakMap<HTMLElement, Paragraph>();
 export const runRegistry = new WeakMap<HTMLElement, Run>();
+/** Top-level, slide-owned shapes only — the ones that may be moved and resized. */
+export const shapeRegistry = new WeakMap<HTMLElement, Shape>();
 
 export interface RenderOptions {
 	/** Draw a subtle border around the slide. */
@@ -69,7 +71,14 @@ export function renderSlide(deck: Deck, slide: Slide, options: RenderOptions = {
 	try {
 		for (const shape of slide.shapes) {
 			const el = renderShape(shape);
-			if (el) root.appendChild(el);
+			if (!el) continue;
+			// Layout and master artwork is drawn but not selectable: dragging it
+			// would move the same logo on every slide using that template.
+			if (shape.source && shape.sourcePart === slide.partPath) {
+				el.dataset.selectable = "1";
+				shapeRegistry.set(el, shape);
+			}
+			root.appendChild(el);
 		}
 	} finally {
 		editablePart = null;
@@ -256,9 +265,9 @@ function renderParagraph(para: Paragraph, body: TextBody): HTMLElement {
 		flex: "0 0 auto",
 		minWidth: `${Math.max(Math.abs(para.indent), firstSize * 0.9)}px`,
 		color: para.bullet.color ?? para.runs[0]?.color ?? "inherit",
-		fontFamily: para.bullet.font ? `"${para.bullet.font}", ${FONT_FALLBACK}` : undefined,
 		fontSize: `${firstSize * para.bullet.scale}px`,
 	});
+	if (para.bullet.font) marker.style.fontFamily = `"${para.bullet.font}", ${FONT_FALLBACK}`;
 	marker.setText(para.bullet.text);
 	runsEl.style.flex = "1 1 auto";
 	runsEl.style.minWidth = "0";

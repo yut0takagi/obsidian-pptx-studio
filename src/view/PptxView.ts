@@ -1,5 +1,7 @@
 import { FileView, Notice, type TFile, type WorkspaceLeaf } from "obsidian";
 import { EditController } from "../edit/EditController";
+import { ElementHistory } from "../edit/History";
+import { ShapeEditor } from "../edit/ShapeEditor";
 import { ConflictError, saveDeck } from "../edit/save";
 import { DeckViewer } from "../render/DeckViewer";
 import { rebuildDeck } from "../pptx/parse";
@@ -12,6 +14,8 @@ export const VIEW_TYPE_PPTX = "pptx-viewer";
 export class PptxView extends FileView {
 	private viewer: DeckViewer | null = null;
 	private editor: EditController | null = null;
+	private shapeEditor: ShapeEditor | null = null;
+	private readonly history = new ElementHistory();
 	private loaded: LoadedDeck | null = null;
 	/** mtime the open deck was read from, used to detect outside edits. */
 	private baseMtime = 0;
@@ -71,19 +75,28 @@ export class PptxView extends FileView {
 
 	private build(loaded: LoadedDeck): void {
 		const settings = this.plugin.settings;
+		this.history.clear();
 
 		this.editor = new EditController({
 			isEnabled: () => true,
+			history: this.history,
 			onFinish: (changedPart) => {
-				if (changedPart && this.loaded) {
-					this.loaded.pkg.markDirty(changedPart);
-					// Re-derive the model so the view reflects exactly what was written.
-					this.loaded.deck = rebuildDeck(this.loaded.pkg, this.file?.basename ?? "Deck");
-					this.viewer?.setDeck(this.loaded.deck);
-					this.viewer?.setDirty(true);
-				} else {
-					this.viewer?.invalidate();
-				}
+				if (changedPart) this.applyEdit(changedPart);
+				else this.viewer?.invalidate();
+			},
+		});
+
+		this.shapeEditor = new ShapeEditor({
+			// Dragging is disabled while a text box is open, so a stray drag inside
+			// the caret's box cannot move the shape out from under the editor.
+			isEnabled: () => !this.editor?.isEditing,
+			getScale: () => this.viewer?.currentScale() ?? 1,
+			history: this.history,
+			onChange: (part) => {
+				// The model was updated in place, so the selection can stay put: only
+				// the dirty flag needs to change.
+				this.loaded?.pkg.markDirty(part);
+				this.viewer?.setDirty(true);
 			},
 		});
 
@@ -96,6 +109,7 @@ export class PptxView extends FileView {
 			showNotes: settings.showNotes,
 			fitMode: settings.fitMode,
 			editor: this.editor,
+			shapeEditor: this.shapeEditor,
 			onSave: () => void this.save(),
 			onExportPng: (slideIndex) => void this.plugin.exportSlidePng(loaded, this.file, slideIndex),
 			onExtractMarkdown: () => void this.plugin.extractMarkdown(loaded, this.file),
@@ -107,13 +121,50 @@ export class PptxView extends FileView {
 		this.viewer.focus();
 	}
 
-	/** Cmd/Ctrl+S saves while the deck view has focus. */
+	/** Save and undo/redo, while the deck view has focus. */
 	private onKeyDown = (event: KeyboardEvent): void => {
-		if (event.key !== "s" || !(event.metaKey || event.ctrlKey)) return;
-		event.preventDefault();
-		event.stopPropagation();
-		void this.save();
+		if (!(event.metaKey || event.ctrlKey)) return;
+		const key = event.key.toLowerCase();
+		if (key === "s") {
+			event.preventDefault();
+			event.stopPropagation();
+			void this.save();
+		} else if (key === "z") {
+			event.preventDefault();
+			event.stopPropagation();
+			if (event.shiftKey) this.redo();
+			else this.undo();
+		} else if (key === "y") {
+			event.preventDefault();
+			event.stopPropagation();
+			this.redo();
+		}
 	};
+
+	undo(): void {
+		this.editor?.commit();
+		const entry = this.history.undo();
+		if (entry) this.applyEdit(entry.part);
+	}
+
+	redo(): void {
+		this.editor?.commit();
+		const entry = this.history.redo();
+		if (entry) this.applyEdit(entry.part);
+	}
+
+	/**
+	 * Mark a part dirty and rebuild the model from it. Undo and text edits both
+	 * replace XML nodes, which invalidates every element reference the model
+	 * holds, so the deck has to be re-derived rather than patched.
+	 */
+	private applyEdit(part: string): void {
+		if (!this.loaded) return;
+		this.loaded.pkg.markDirty(part);
+		this.loaded.deck = rebuildDeck(this.loaded.pkg, this.file?.basename ?? "Deck");
+		this.viewer?.setDeck(this.loaded.deck);
+		this.viewer?.setDirty(true);
+	}
 
 	async save(): Promise<void> {
 		const file = this.file;
@@ -166,6 +217,8 @@ export class PptxView extends FileView {
 		this.viewer?.destroy();
 		this.viewer = null;
 		this.editor = null;
+		this.shapeEditor = null;
+		this.history.clear();
 		this.loaded = null;
 	}
 }

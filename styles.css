@@ -203,13 +203,30 @@
 
 /* -------------------------------------------------------------- editing */
 
+/* Clicking selects a shape, so a stray drag must not start a text selection. */
+.pptx-view .pptx-slide {
+	user-select: none;
+}
+
+/* Embeds are read-only; there, selecting text to copy is the useful behaviour. */
+.pptx-viewer.is-compact .pptx-slide {
+	user-select: text;
+}
+
+.pptx-view .pptx-slide [data-selectable="1"] {
+	cursor: move;
+}
+
 .pptx-text[data-editable="1"] {
 	cursor: text;
 }
 
-.pptx-text[data-editable="1"]:hover {
-	outline: 1px dashed rgba(0, 0, 0, 0.25);
-	outline-offset: 2px;
+.pptx-text.is-editing {
+	user-select: text;
+}
+
+.pptx-handle {
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .pptx-text.is-editing {

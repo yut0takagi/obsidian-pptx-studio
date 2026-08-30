@@ -1,5 +1,6 @@
 import { setIcon } from "obsidian";
 import type { EditController } from "../edit/EditController";
+import type { ShapeEditor } from "../edit/ShapeEditor";
 import type { PptxPackage } from "../pptx/package";
 import type { Deck } from "../pptx/types";
 import { renderSlide } from "./renderSlide";
@@ -22,6 +23,7 @@ export interface DeckViewerOptions {
 	onSave?: () => void;
 	/** Supplied only where editing is allowed, i.e. the full file view. */
 	editor?: EditController;
+	shapeEditor?: ShapeEditor;
 }
 
 const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.75, 1, 1.25, 1.5, 2, 3];
@@ -212,11 +214,13 @@ export class DeckViewer {
 		if (cached) return cached;
 		const el = renderSlide(this.deck, slide, { border: true });
 		this.options.editor?.attach(el);
+		this.options.shapeEditor?.attach(el);
 		this.slideCache.set(index, el);
 		return el;
 	}
 
 	private showSlide(index: number): void {
+		this.options.shapeEditor?.deselect();
 		const el = this.slideElement(index);
 		this.canvasEl.empty();
 		if (el) this.canvasEl.appendChild(el);
@@ -268,7 +272,16 @@ export class DeckViewer {
 		this.canvasEl.style.width = `${this.deck.width * scale}px`;
 		this.canvasEl.style.height = `${this.deck.height * scale}px`;
 		this.zoomLabelEl?.setText(`${Math.round(scale * 100)}%`);
+		this.lastScale = scale;
+		this.options.shapeEditor?.refresh();
 	}
+
+	/** The factor the slide element is currently scaled by. */
+	currentScale(): number {
+		return this.lastScale;
+	}
+
+	private lastScale = 1;
 
 	private stepZoom(direction: number): void {
 		const current = this.currentScale();
@@ -277,14 +290,6 @@ export class DeckViewer {
 				? (ZOOM_STEPS.find((z) => z > current + 0.001) ?? ZOOM_STEPS[ZOOM_STEPS.length - 1])
 				: ([...ZOOM_STEPS].reverse().find((z) => z < current - 0.001) ?? ZOOM_STEPS[0]);
 		this.setZoom(next);
-	}
-
-	private currentScale(): number {
-		if (this.zoom !== null) return this.zoom;
-		const el = this.canvasEl.firstElementChild as HTMLElement | null;
-		if (!el) return 1;
-		const match = /scale\(([\d.]+)\)/.exec(el.style.transform);
-		return match ? Number(match[1]) : 1;
 	}
 
 	private setZoom(value: number | null): void {
@@ -307,6 +312,12 @@ export class DeckViewer {
 	}
 
 	private onKeyDown = (event: KeyboardEvent): void => {
+		// A selected shape claims the arrow keys for nudging before paging sees them.
+		if (this.options.shapeEditor?.handleKey(event)) {
+			event.preventDefault();
+			event.stopPropagation();
+			return;
+		}
 		switch (event.key) {
 			case "ArrowRight":
 			case "PageDown":
@@ -367,7 +378,10 @@ export class DeckViewer {
 
 	/** Re-render from the current model, discarding cached slide elements. */
 	invalidate(): void {
-		for (const el of this.slideCache.values()) this.options.editor?.detach(el);
+		for (const el of this.slideCache.values()) {
+			this.options.editor?.detach(el);
+			this.options.shapeEditor?.detach(el);
+		}
 		this.slideCache.clear();
 		this.showSlide(this.index);
 	}
@@ -377,7 +391,10 @@ export class DeckViewer {
 	}
 
 	destroy(): void {
-		for (const el of this.slideCache.values()) this.options.editor?.detach(el);
+		for (const el of this.slideCache.values()) {
+			this.options.editor?.detach(el);
+			this.options.shapeEditor?.detach(el);
+		}
 		this.resizeObserver?.disconnect();
 		this.thumbObserver?.disconnect();
 		this.root.removeEventListener("keydown", this.onKeyDown);

@@ -19,10 +19,11 @@
   ],
   "license": "MIT",
   "devDependencies": {
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^22.5.0",
-    "@xmldom/xmldom": "^0.9.12",
     "builtin-modules": "^4.0.0",
     "esbuild": "^0.23.0",
+    "jsdom": "^29.1.1",
     "obsidian": "^1.7.2",
     "typescript": "^5.5.4"
   },
