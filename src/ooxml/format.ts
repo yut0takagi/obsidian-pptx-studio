@@ -398,6 +398,41 @@ export function applyShapeOutline(source: Element, patch: OutlinePatch): boolean
 	return true;
 }
 
+/** Swap a shape's preset geometry, keeping its position, fill and text. */
+export function applyGeometry(source: Element, preset: string): boolean {
+	const spPr = child(source, "spPr");
+	if (!spPr) return false;
+	const doc = source.ownerDocument;
+	// A custom geometry cannot be reinterpreted as a preset, so it is replaced.
+	setOrderedChild(spPr, "custGeom", SPPR_ORDER, null);
+	const geom = doc.createElementNS(A_NS, "a:prstGeom");
+	geom.setAttribute("prst", preset);
+	geom.appendChild(doc.createElementNS(A_NS, "a:avLst"));
+	setOrderedChild(spPr, "prstGeom", SPPR_ORDER, geom);
+	return true;
+}
+
+/**
+ * Attach or remove a hyperlink on a run.
+ *
+ * The URL lives in the part's relationships, not in the run, so the caller has
+ * to supply the relationship id it created.
+ */
+export function applyHyperlink(runEl: Element, relId: string | null): void {
+	const rPr = runProps(runEl);
+	if (relId === null) {
+		setOrderedChild(rPr, "hlinkClick", RPR_ORDER, null);
+		return;
+	}
+	const link = rPr.ownerDocument.createElementNS(A_NS, "a:hlinkClick");
+	link.setAttributeNS(
+		"http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+		"r:id",
+		relId,
+	);
+	setOrderedChild(rPr, "hlinkClick", RPR_ORDER, link);
+}
+
 /** Vertical anchor of a text body: t / ctr / b. */
 export function applyTextAnchor(source: Element, anchor: "t" | "ctr" | "b"): boolean {
 	const txBody = child(source, "txBody");

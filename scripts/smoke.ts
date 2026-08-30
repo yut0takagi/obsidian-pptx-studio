@@ -26,13 +26,34 @@ import {
 	reorderSelection,
 	ungroupSelection,
 } from "../src/edit/commands";
-import { applyTextFormat, setFill } from "../src/edit/formatCommands";
+import {
+	applyTextFormat,
+	changeShape,
+	copyFormatting,
+	flipSelection,
+	pasteFormatting,
+	rotateBy,
+	setFill,
+	setGeometry,
+	setHyperlink,
+} from "../src/edit/formatCommands";
+import {
+	TableSelection,
+	deleteTableColumns,
+	deleteTableRows,
+	insertTableColumn,
+	insertTableRow,
+	mergeTableCells,
+	setCellFill,
+	splitTableCells,
+} from "../src/edit/tableCommands";
 import { insertAutoShape, insertPicture, insertTable, insertTextBox } from "../src/edit/insertCommands";
 import {
 	deleteCurrentSlide,
 	duplicateCurrentSlide,
 	newSlide,
 	reorderSlide,
+	setSlideBackgroundColor,
 } from "../src/edit/slideCommands";
 import { encodePng } from "./png.mjs";
 import { writeShapeFrame } from "../src/edit/geometryWrite";
@@ -457,6 +478,18 @@ function checkEditorCommands(path: string): void {
 			() => insertAutoShape(ctx(), "roundRect", "Rounded rectangle"),
 			() => (ownShapes().length === before + 2 ? null : "shape count did not rise"),
 		);
+		const shapeId = ownShapes()[ownShapes().length - 1].id;
+		selection.set(0, [shapeId]);
+		step(
+			"change shape",
+			() => changeShape(ctx(), "hexagon", "Hexagon"),
+			() => {
+				const shape = ownShapes().find((s) => s.id === shapeId);
+				return shape?.kind === "shape" && shape.geom === "hexagon"
+					? null
+					: "the preset did not change";
+			},
+		);
 		step(
 			"insert table",
 			() => insertTable(ctx(), 3, 3),
@@ -467,6 +500,73 @@ function checkEditorCommands(path: string): void {
 					? null
 					: "table has the wrong shape";
 			},
+		);
+
+		// Table structure, driven the way the ribbon drives it.
+		const tableId = ownShapes().find((s) => s.kind === "table")!.id;
+		const tableSel = new TableSelection();
+		const tableOf = () => {
+			const shape = ownShapes().find((s) => s.id === tableId);
+			return shape?.kind === "table" ? shape.table : null;
+		};
+		selection.set(0, [tableId]);
+		tableSel.select(tableId, 1, 1, false);
+
+		step(
+			"insert table row",
+			() => insertTableRow(ctx(), tableSel, "below"),
+			() => (tableOf()?.rows.length === 4 ? null : "row count did not rise"),
+		);
+		step(
+			"insert table column",
+			() => insertTableColumn(ctx(), tableSel, "right"),
+			() => (tableOf()?.columns.length === 4 ? null : "column count did not rise"),
+		);
+		step(
+			"merge cells",
+			() => {
+				tableSel.select(tableId, 1, 1, false);
+				tableSel.select(tableId, 1, 2, true);
+				return mergeTableCells(ctx(), tableSel);
+			},
+			() => {
+				const cell = tableOf()?.rows[1]?.cells[1];
+				return cell && cell.colSpan === 2 ? null : "the merge did not take";
+			},
+		);
+		step(
+			"split cells",
+			() => splitTableCells(ctx(), tableSel),
+			() => {
+				const cell = tableOf()?.rows[1]?.cells[1];
+				return cell && cell.colSpan === 1 ? null : "the split did not take";
+			},
+		);
+		step(
+			"cell fill",
+			() => setCellFill(ctx(), tableSel, "#ffcc00"),
+			() => {
+				const cell = tableOf()?.rows[1]?.cells[1];
+				return cell?.fill?.kind === "solid" && cell.fill.color === "#ffcc00"
+					? null
+					: "the cell fill did not come back";
+			},
+		);
+		step(
+			"delete table row",
+			() => {
+				tableSel.select(tableId, 3, 0, false);
+				return deleteTableRows(ctx(), tableSel);
+			},
+			() => (tableOf()?.rows.length === 3 ? null : "row count did not fall"),
+		);
+		step(
+			"delete table column",
+			() => {
+				tableSel.select(tableId, 0, 3, false);
+				return deleteTableColumns(ctx(), tableSel);
+			},
+			() => (tableOf()?.columns.length === 3 ? null : "column count did not fall"),
 		);
 		step(
 			"insert picture",
@@ -532,6 +632,59 @@ function checkEditorCommands(path: string): void {
 					? null
 					: "the fill did not come back";
 			},
+		);
+		step(
+			"rotate 90",
+			() => rotateBy(ctx(), 90),
+			() => {
+				const box = ownShapes().find((s) => s.id === textBoxId);
+				return box && Math.abs(box.frame.rot - 90) < 0.5 ? null : "rotation did not stick";
+			},
+		);
+		step(
+			"flip horizontally",
+			() => flipSelection(ctx(), "h"),
+			() => {
+				const box = ownShapes().find((s) => s.id === textBoxId);
+				return box?.frame.flipH ? null : "the flip did not stick";
+			},
+		);
+		step(
+			"set position and size",
+			() => setGeometry(ctx(), { x: 40, y: 60, w: 200, h: 90 }, "Set position"),
+			() => {
+				const box = ownShapes().find((s) => s.id === textBoxId);
+				if (!box) return "the shape vanished";
+				const f = box.frame;
+				return Math.abs(f.x - 40) < 0.5 && Math.abs(f.w - 200) < 0.5
+					? null
+					: `frame came back as ${f.x.toFixed(1)},${f.y.toFixed(1)} ${f.w.toFixed(1)}x${f.h.toFixed(1)}`;
+			},
+		);
+		step(
+			"hyperlink",
+			() => setHyperlink(ctx(), "https://obsidian.md"),
+			() => {
+				const box = ownShapes().find((s) => s.id === textBoxId);
+				if (box?.kind !== "shape" || !box.text) return "the text box vanished";
+				return box.text.paragraphs.some((p) => p.runs.some((r) => r.link))
+					? null
+					: "no run came back linked";
+			},
+		);
+		// Copying formatting only fills a buffer, so it is deliberately not undoable
+		// and must not be counted as a step.
+		if (copyFormatting(ctx())) pass("copy formatting");
+		else fail("copy formatting did nothing");
+		step("paste formatting", () => pasteFormatting(ctx()), () => null);
+		step(
+			"slide background",
+			() => setSlideBackgroundColor(ctx(), "#eef2f6"),
+			() =>
+				model.slides[0].background?.kind === "solid" &&
+				model.slides[0].background.color === "#eef2f6"
+					? null
+					: "the background did not come back",
 		);
 		step(
 			"delete",

@@ -375,12 +375,15 @@ function renderTable(shape: TableShape): HTMLElement {
 	table.appendChild(colgroup);
 
 	const tbody = document.createElement("tbody");
-	for (const row of shape.table.rows) {
+	shape.table.rows.forEach((row, rowIndex) => {
 		const tr = document.createElement("tr");
 		if (row.height) tr.style.height = `${row.height}px`;
-		for (const cell of row.cells) {
-			if (cell.merged) continue;
+		row.cells.forEach((cell, colIndex) => {
+			if (cell.merged) return;
 			const td = document.createElement("td");
+			// Grid coordinates, so a click can be turned back into a cell.
+			td.dataset.cellRow = String(rowIndex);
+			td.dataset.cellCol = String(colIndex);
 			if (cell.colSpan > 1) td.colSpan = cell.colSpan;
 			if (cell.rowSpan > 1) td.rowSpan = cell.rowSpan;
 			Object.assign(td.style, {
@@ -410,9 +413,9 @@ function renderTable(shape: TableShape): HTMLElement {
 				td.appendChild(body);
 			}
 			tr.appendChild(td);
-		}
+		});
 		tbody.appendChild(tr);
-	}
+	});
 	table.appendChild(tbody);
 	el.appendChild(table);
 	return el;

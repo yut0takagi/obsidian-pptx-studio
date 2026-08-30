@@ -16,17 +16,23 @@ alongside it.
   Only the slide XML you touched is rewritten; every other part of the file is
   repacked byte for byte, so animations, transitions, embedded fonts and any
   formatting this plugin does not model survive untouched.
-- **Edit like PowerPoint** — a tabbed ribbon (Home, Insert, Format, View) over a
-  slide canvas with multi-select, marquee selection, drag and resize, snapping
-  guides, clipboard, z-order, align and distribute, group and ungroup, and a
-  right-click menu.
+- **Edit like PowerPoint** — a tabbed ribbon (Home, Insert, Format, Design, View,
+  and a Table tab that appears when one is selected) over a slide canvas with
+  multi-select, marquee selection, drag, resize, rotate, snapping guides,
+  clipboard, z-order, align and distribute, group and ungroup, and a right-click
+  menu.
 - **Format** — font and size, bold/italic/underline/strikethrough, text colour,
   alignment, bullets and numbering, list level, line spacing, vertical anchor,
   shape fill and outline. With text selected the change applies to exactly those
   characters; with only the shape selected it applies to all of its text.
 - **Insert** — text boxes, twelve shape presets, lines, pictures from the vault,
   and tables.
-- **Slides** — add from any layout, duplicate, delete, reorder.
+- **Tables** — click a cell to select it, shift-click to extend, then insert and
+  delete rows and columns, merge and split cells, and fill them.
+- **Slides** — add from any layout, duplicate, delete, and reorder by dragging a
+  thumbnail. Set a slide's background colour.
+- **Also** — hyperlinks, format painter, change a shape's preset, rotate and flip
+  by 90°, and numeric position, size and rotation fields.
 - **Embed slides in notes** — `![[deck.pptx]]` embeds the deck, `![[deck.pptx#3]]`
   pins a single slide.
 - **Extract to Markdown** — turn a deck into an outline note so its content is
@@ -50,8 +56,12 @@ alongside it.
 | `Cmd`/`Ctrl` + `A` | select every shape on the slide |
 | `Cmd`/`Ctrl` + `C` / `X` / `V` / `D` | copy, cut, paste, duplicate |
 | `Delete` | delete the selection |
-| `Alt` while dragging | ignore snapping |
+| `Alt` while dragging | drag a copy |
+| `Shift` while dragging | constrain to one axis |
 | `Shift` while resizing a corner | keep the aspect ratio |
+| `Shift` while rotating | snap to 15° |
+| `Cmd`/`Ctrl` while dragging | ignore snapping |
+| `Tab` / `Shift`+`Tab` while editing text | change the list level |
 | `Cmd`/`Ctrl` + `Z` / `Shift+Z` | undo / redo |
 | `Cmd`/`Ctrl` + `S` | save |
 

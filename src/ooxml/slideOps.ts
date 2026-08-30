@@ -210,6 +210,45 @@ export function moveSlide(pkg: PptxPackage, from: number, to: number): boolean {
 	return true;
 }
 
+/**
+ * Set or clear a slide's own background.
+ *
+ * Clearing removes p:bg entirely rather than writing white, so the slide goes
+ * back to inheriting whatever its layout and master specify.
+ */
+export function setSlideBackground(
+	pkg: PptxPackage,
+	slidePath: string,
+	color: string | null,
+): boolean {
+	const root = pkg.xml(slidePath)?.documentElement ?? null;
+	const cSld = child(root, "cSld");
+	if (!cSld) return false;
+	const doc = cSld.ownerDocument;
+
+	const existing = child(cSld, "bg");
+	if (existing) cSld.removeChild(existing);
+	if (color === null) {
+		pkg.markDirty(slidePath);
+		return true;
+	}
+
+	const A = "http://schemas.openxmlformats.org/drawingml/2006/main";
+	const bg = pEl(doc, "bg");
+	const bgPr = pEl(doc, "bgPr");
+	const fill = doc.createElementNS(A, "a:solidFill");
+	const clr = doc.createElementNS(A, "a:srgbClr");
+	clr.setAttribute("val", color.replace(/^#/, "").toUpperCase());
+	fill.appendChild(clr);
+	bgPr.appendChild(fill);
+	bgPr.appendChild(doc.createElementNS(A, "a:effectLst"));
+	bg.appendChild(bgPr);
+	// p:bg must be the first child of p:cSld.
+	cSld.insertBefore(bg, cSld.firstChild);
+	pkg.markDirty(slidePath);
+	return true;
+}
+
 /** Layouts available for a new slide, in the order the master lists them. */
 export function availableLayouts(pkg: PptxPackage): { path: string; name: string }[] {
 	const root = presentationRoot(pkg);

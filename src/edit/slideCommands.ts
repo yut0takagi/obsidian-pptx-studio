@@ -9,6 +9,7 @@ import {
 	layoutOf,
 	moveSlide,
 	nextSlidePath,
+	setSlideBackground,
 	slidePaths,
 } from "../ooxml/slideOps";
 import type { CommandContext } from "./commands";
@@ -90,6 +91,15 @@ export function moveCurrentSlide(ctx: CommandContext, delta: number): number {
 /** Move a slide from one position to another, for thumbnail drag and drop. */
 export function reorderSlide(ctx: CommandContext, from: number, to: number): boolean {
 	return ctx.editor.transact("Reorder slides", parts(ctx), () => moveSlide(ctx.pkg, from, to));
+}
+
+/** Set or clear the current slide's own background colour. */
+export function setSlideBackgroundColor(ctx: CommandContext, color: string | null): boolean {
+	return ctx.editor.transact(
+		color === null ? "Reset background" : "Slide background",
+		[ctx.slide.partPath],
+		() => setSlideBackground(ctx.pkg, ctx.slide.partPath, color),
+	);
 }
 
 export function canDeleteSlide(ctx: CommandContext): boolean {

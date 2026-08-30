@@ -17,13 +17,32 @@ import {
 import {
 	applyParagraphFormat,
 	applyTextFormat,
+	changeShape,
+	copyFormatting,
 	fillState,
+	flipSelection,
+	geometryState,
+	hasCopiedFormat,
 	outlineState,
+	pasteFormatting,
+	rotateBy,
 	setFill,
+	setGeometry,
 	setOutline,
 	setVerticalAnchor,
 	textState,
 } from "../edit/formatCommands";
+import {
+	type TableSelection,
+	deleteTableColumns,
+	deleteTableRows,
+	hasTableSelection,
+	insertTableColumn,
+	insertTableRow,
+	mergeTableCells,
+	setCellFill,
+	splitTableCells,
+} from "../edit/tableCommands";
 import { insertAutoShape, insertLine, insertTextBox } from "../edit/insertCommands";
 import {
 	canDeleteSlide,
@@ -31,6 +50,7 @@ import {
 	duplicateCurrentSlide,
 	moveCurrentSlide,
 	newSlide,
+	setSlideBackgroundColor,
 } from "../edit/slideCommands";
 import type { RibbonItem, RibbonTab } from "./Ribbon";
 
@@ -57,6 +77,9 @@ export interface RibbonHost {
 	pickImage: () => void;
 	pickTable: () => void;
 	pickLayout: () => void;
+	pickHyperlink: () => void;
+	tableSelection: TableSelection;
+	slideBackground: () => string | null;
 	exportPng: () => void;
 	extractMarkdown: () => void;
 	openExternally: () => void;
@@ -93,6 +116,16 @@ const FONTS = [
 	"Meiryo",
 	"Noto Sans JP",
 ];
+
+/** A compact labelled number input, used for position and size. */
+function numberField(
+	label: string,
+	tooltip: string,
+	value: () => number | null,
+	onChange: (value: number) => void,
+): RibbonItem {
+	return { kind: "number", label, tooltip, width: "4.5em", value, onChange };
+}
 
 export function buildTabs(host: RibbonHost): RibbonTab[] {
 	const hasSelection = () => (host.ctx() ? selectedShapes(host.ctx()!).length > 0 : false);
@@ -162,6 +195,13 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 			value: () => state()?.color ?? null,
 			isEnabled: () => host.canEdit() && hasSelection(),
 			onChange: (color) => host.run((ctx) => applyTextFormat(ctx, { color }, "Text colour")),
+		},
+		{
+			kind: "button",
+			icon: "link",
+			tooltip: "Add or edit a hyperlink",
+			isEnabled: () => host.canEdit() && hasSelection(),
+			onClick: () => host.pickHyperlink(),
 		},
 	];
 
@@ -563,19 +603,184 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 			title: "Format",
 			groups: [
 				{ title: "Shape styles", items: shapeStyleItems },
+				{
+					title: "Shape",
+					items: [
+						{
+							kind: "menu",
+							icon: "shapes",
+							label: "Change",
+							tooltip: "Change the selected shape",
+							isEnabled: () => host.canEdit() && hasSelection(),
+							build: (menu: Menu) => {
+								for (const shape of SHAPE_PRESETS) {
+									menu.addItem((item) =>
+										item
+											.setTitle(shape.label)
+											.onClick(() => host.run((ctx) => changeShape(ctx, shape.preset, shape.label))),
+									);
+								}
+							},
+						},
+						{
+							kind: "button",
+							icon: "paintbrush",
+							tooltip: "Copy formatting",
+							isEnabled: () => host.canEdit() && hasSelection(),
+							onClick: () => host.run(copyFormatting),
+						},
+						{
+							kind: "button",
+							icon: "clipboard-check",
+							tooltip: "Paste formatting",
+							isEnabled: () => host.canEdit() && hasSelection() && hasCopiedFormat(),
+							onClick: () => host.run(pasteFormatting),
+						},
+					],
+				},
 				{ title: "Arrange", items: arrangeItems },
 				{
-					title: "Quick shapes",
+					title: "Rotate",
 					items: [
-						...SHAPE_PRESETS.slice(0, 6).map(
-							(shape): RibbonItem => ({
-								kind: "button",
-								label: shape.label,
-								tooltip: `Insert a ${shape.label.toLowerCase()}`,
-								isEnabled: host.canEdit,
-								onClick: () => host.run((ctx) => insertAutoShape(ctx, shape.preset, shape.label)),
-							}),
-						),
+						{
+							kind: "button",
+							icon: "rotate-cw",
+							tooltip: "Rotate 90° right",
+							isEnabled: () => host.canEdit() && hasSelection(),
+							onClick: () => host.run((ctx) => rotateBy(ctx, 90)),
+						},
+						{
+							kind: "button",
+							icon: "rotate-ccw",
+							tooltip: "Rotate 90° left",
+							isEnabled: () => host.canEdit() && hasSelection(),
+							onClick: () => host.run((ctx) => rotateBy(ctx, -90)),
+						},
+						{
+							kind: "button",
+							icon: "flip-horizontal",
+							tooltip: "Flip horizontally",
+							isEnabled: () => host.canEdit() && hasSelection(),
+							onClick: () => host.run((ctx) => flipSelection(ctx, "h")),
+						},
+						{
+							kind: "button",
+							icon: "flip-vertical",
+							tooltip: "Flip vertically",
+							isEnabled: () => host.canEdit() && hasSelection(),
+							onClick: () => host.run((ctx) => flipSelection(ctx, "v")),
+						},
+					],
+				},
+				{
+					title: "Position and size",
+					items: [
+						numberField("X", "Distance from the left edge, in pixels", () => geometryState(host.ctx())?.x ?? null, (x) => host.run((ctx) => setGeometry(ctx, { x }, "Set position"))),
+						numberField("Y", "Distance from the top edge, in pixels", () => geometryState(host.ctx())?.y ?? null, (y) => host.run((ctx) => setGeometry(ctx, { y }, "Set position"))),
+						numberField("W", "Width in pixels", () => geometryState(host.ctx())?.w ?? null, (w) => host.run((ctx) => setGeometry(ctx, { w }, "Set size"))),
+						numberField("H", "Height in pixels", () => geometryState(host.ctx())?.h ?? null, (h) => host.run((ctx) => setGeometry(ctx, { h }, "Set size"))),
+						numberField("°", "Rotation in degrees", () => geometryState(host.ctx())?.rotation ?? null, (rotation) => host.run((ctx) => setGeometry(ctx, { rotation }, "Set rotation"))),
+					],
+				},
+			],
+		},
+		{
+			id: "design",
+			title: "Design",
+			groups: [
+				{
+					title: "Slide background",
+					items: [
+						{
+							kind: "color",
+							icon: "paint-bucket",
+							tooltip: "Slide background colour",
+							allowNone: true,
+							value: host.slideBackground,
+							isEnabled: host.canEdit,
+							onChange: (color) => host.run((ctx) => setSlideBackgroundColor(ctx, color)),
+						},
+					],
+				},
+				{ title: "Slides", items: slideItems },
+			],
+		},
+		{
+			id: "table",
+			title: "Table",
+			visible: () => hasTableSelection(host.ctx(), host.tableSelection),
+			groups: [
+				{
+					title: "Rows and columns",
+					items: [
+						{
+							kind: "button",
+							icon: "between-vertical-start",
+							label: "Above",
+							tooltip: "Insert a row above",
+							onClick: () => host.run((ctx) => insertTableRow(ctx, host.tableSelection, "above")),
+						},
+						{
+							kind: "button",
+							icon: "between-vertical-end",
+							label: "Below",
+							tooltip: "Insert a row below",
+							onClick: () => host.run((ctx) => insertTableRow(ctx, host.tableSelection, "below")),
+						},
+						{
+							kind: "button",
+							icon: "between-horizontal-start",
+							label: "Left",
+							tooltip: "Insert a column to the left",
+							onClick: () => host.run((ctx) => insertTableColumn(ctx, host.tableSelection, "left")),
+						},
+						{
+							kind: "button",
+							icon: "between-horizontal-end",
+							label: "Right",
+							tooltip: "Insert a column to the right",
+							onClick: () => host.run((ctx) => insertTableColumn(ctx, host.tableSelection, "right")),
+						},
+						{ kind: "separator" },
+						{
+							kind: "button",
+							icon: "rows-3",
+							tooltip: "Delete the selected rows",
+							onClick: () => host.run((ctx) => deleteTableRows(ctx, host.tableSelection)),
+						},
+						{
+							kind: "button",
+							icon: "columns-3",
+							tooltip: "Delete the selected columns",
+							onClick: () => host.run((ctx) => deleteTableColumns(ctx, host.tableSelection)),
+						},
+					],
+				},
+				{
+					title: "Cells",
+					items: [
+						{
+							kind: "button",
+							icon: "table-cells-merge",
+							label: "Merge",
+							tooltip: "Merge the selected cells",
+							onClick: () => host.run((ctx) => mergeTableCells(ctx, host.tableSelection)),
+						},
+						{
+							kind: "button",
+							icon: "table-cells-split",
+							label: "Split",
+							tooltip: "Split merged cells",
+							onClick: () => host.run((ctx) => splitTableCells(ctx, host.tableSelection)),
+						},
+						{
+							kind: "color",
+							icon: "paint-bucket",
+							tooltip: "Cell fill",
+							allowNone: true,
+							value: () => null,
+							onChange: (color) => host.run((ctx) => setCellFill(ctx, host.tableSelection, color)),
+						},
 					],
 				},
 			],

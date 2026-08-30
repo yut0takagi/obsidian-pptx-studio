@@ -23,6 +23,10 @@ export interface DeckViewerOptions {
 	chrome: "toolbar" | "status" | "none";
 	/** Called when the visible slide changes, before the new one is shown. */
 	onSlideChange?: (index: number) => void;
+	/** Called after a slide is rendered and mounted. */
+	onRendered?: (slideEl: HTMLElement | null) => void;
+	/** Dragging a thumbnail onto another position. */
+	onReorder?: (from: number, to: number) => void;
 	onExportPng?: (slideIndex: number) => void;
 	onExtractMarkdown?: () => void;
 	onOpenExternal?: () => void;
@@ -210,8 +214,59 @@ export class DeckViewer {
 			item.createSpan({ cls: "pptx-thumb-number", text: String(slide.index) });
 			item.createDiv({ cls: "pptx-thumb-frame" });
 			item.addEventListener("click", () => this.go(i));
+			if (this.options.onReorder) this.makeThumbDraggable(item);
 			this.thumbObserver?.observe(item);
 		});
+	}
+
+	/**
+	 * Drag a thumbnail to reorder the deck. The drop position is the gap the
+	 * pointer is nearest, which is what the insertion line drawn during the drag
+	 * is showing.
+	 */
+	private makeThumbDraggable(item: HTMLElement): void {
+		item.draggable = true;
+		item.addEventListener("dragstart", (event) => {
+			event.dataTransfer?.setData("text/plain", item.dataset.index ?? "");
+			if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+			item.addClass("is-dragging");
+		});
+		item.addEventListener("dragend", () => {
+			item.removeClass("is-dragging");
+			this.clearDropMarkers();
+		});
+		item.addEventListener("dragover", (event) => {
+			event.preventDefault();
+			if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+			const rect = item.getBoundingClientRect();
+			const after = event.clientY > rect.top + rect.height / 2;
+			this.clearDropMarkers();
+			item.addClass(after ? "is-drop-after" : "is-drop-before");
+		});
+		item.addEventListener("dragleave", () => this.clearDropMarkers());
+		item.addEventListener("drop", (event) => {
+			event.preventDefault();
+			const from = Number(event.dataTransfer?.getData("text/plain"));
+			const target = Number(item.dataset.index);
+			const rect = item.getBoundingClientRect();
+			const after = event.clientY > rect.top + rect.height / 2;
+			this.clearDropMarkers();
+			if (!Number.isFinite(from) || !Number.isFinite(target)) return;
+			// Dropping below a thumbnail means "after it", which is one index later
+			// unless the slide is moving down the list and vacates its own slot.
+			let to = after ? target + 1 : target;
+			if (from < to) to -= 1;
+			if (to === from) return;
+			this.options.onReorder?.(from, to);
+		});
+	}
+
+	private clearDropMarkers(): void {
+		if (!this.railEl) return;
+		for (const el of Array.from(this.railEl.children)) {
+			(el as HTMLElement).removeClass("is-drop-before");
+			(el as HTMLElement).removeClass("is-drop-after");
+		}
 	}
 
 	/** Thumbnails render only once they scroll into view; big decks stay responsive. */
@@ -250,6 +305,7 @@ export class DeckViewer {
 		this.canvasEl.empty();
 		if (el) this.canvasEl.appendChild(el);
 		this.options.shapeEditor?.setActive(el);
+		this.options.onRendered?.(el);
 
 		if (this.counterEl) {
 			this.counterEl.setText(

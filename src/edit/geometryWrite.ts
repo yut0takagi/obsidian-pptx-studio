@@ -73,6 +73,33 @@ export function writeFrame(source: Element, frame: { x: number; y: number; w: nu
 	return true;
 }
 
+/**
+ * Set a shape's rotation, in degrees clockwise. OOXML stores it in sixtieths of
+ * a degree, normalised to [0, 360).
+ */
+export function writeRotation(source: Element, degrees: number): boolean {
+	const target = transformHost(source);
+	if (!target) return false;
+	const xfrm = child(target.host, "xfrm");
+	if (!xfrm) return false;
+	const normalised = ((degrees % 360) + 360) % 360;
+	if (Math.abs(normalised) < 0.01) xfrm.removeAttribute("rot");
+	else xfrm.setAttribute("rot", String(Math.round(normalised * 60000)));
+	return true;
+}
+
+/** Toggle a horizontal or vertical flip. */
+export function writeFlip(source: Element, axis: "h" | "v", flipped: boolean): boolean {
+	const target = transformHost(source);
+	if (!target) return false;
+	const xfrm = child(target.host, "xfrm");
+	if (!xfrm) return false;
+	const name = axis === "h" ? "flipH" : "flipV";
+	if (flipped) xfrm.setAttribute(name, "1");
+	else xfrm.removeAttribute(name);
+	return true;
+}
+
 /** Read a shape element's own frame, ignoring anything it inherits. */
 export function readFrame(source: Element): Frame | null {
 	const target = transformHost(source);

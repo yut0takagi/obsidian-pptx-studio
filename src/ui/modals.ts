@@ -105,6 +105,51 @@ export class TableSizeModal extends Modal {
 	}
 }
 
+/** Ask for one line of text, e.g. a URL. */
+export class PromptModal extends Modal {
+	private value: string;
+
+	constructor(
+		app: App,
+		private readonly title: string,
+		initial: string,
+		private readonly onSubmit: (value: string) => void,
+	) {
+		super(app);
+		this.value = initial;
+	}
+
+	onOpen(): void {
+		this.titleEl.setText(this.title);
+		const setting = new Setting(this.contentEl).addText((text) =>
+			text
+				.setValue(this.value)
+				.setPlaceholder("https://")
+				.onChange((value) => {
+					this.value = value;
+				}),
+		);
+		const input = setting.controlEl.querySelector("input");
+		input?.addEventListener("keydown", (event) => {
+			if ((event as KeyboardEvent).key === "Enter") this.submit();
+		});
+		window.setTimeout(() => input?.focus(), 0);
+
+		new Setting(this.contentEl).addButton((button) =>
+			button.setButtonText("OK").setCta().onClick(() => this.submit()),
+		);
+	}
+
+	private submit(): void {
+		this.close();
+		this.onSubmit(this.value.trim());
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
+
 /** Natural pixel size of an image, so an inserted picture keeps its proportions. */
 export async function imageDimensions(
 	bytes: Uint8Array,

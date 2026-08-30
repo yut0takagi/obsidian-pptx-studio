@@ -17,13 +17,27 @@ import {
 	selectedShapes,
 	ungroupSelection,
 } from "../edit/commands";
+import { applyParagraphFormatAt, hyperlinkState, setHyperlink } from "../edit/formatCommands";
 import { insertPicture, insertTable } from "../edit/insertCommands";
+import { TableSelection } from "../edit/tableCommands";
 import { ConflictError, saveDeck } from "../edit/save";
-import { canDeleteSlide, deleteCurrentSlide, listLayouts, newSlide } from "../edit/slideCommands";
+import {
+	canDeleteSlide,
+	deleteCurrentSlide,
+	listLayouts,
+	newSlide,
+	reorderSlide,
+} from "../edit/slideCommands";
 import { rebuildDeck } from "../pptx/parse";
 import { DeckViewer } from "../render/DeckViewer";
 import { Ribbon } from "../ui/Ribbon";
-import { ImagePickerModal, LayoutPickerModal, TableSizeModal, imageDimensions } from "../ui/modals";
+import {
+	ImagePickerModal,
+	LayoutPickerModal,
+	PromptModal,
+	TableSizeModal,
+	imageDimensions,
+} from "../ui/modals";
 import { type RibbonHost, buildTabs } from "../ui/tabs";
 import type PptxViewerPlugin from "../main";
 
@@ -37,6 +51,8 @@ export class PptxView extends FileView {
 	private shapeEditor: ShapeEditor | null = null;
 	private deckEditor: DeckEditor | null = null;
 	private readonly selection = new Selection();
+	private readonly tableSelection = new TableSelection();
+	private activeSlideEl: HTMLElement | null = null;
 	private loaded: LoadedDeck | null = null;
 	/** mtime the open deck was read from, used to detect outside edits. */
 	private baseMtime = 0;
@@ -47,7 +63,14 @@ export class PptxView extends FileView {
 		private readonly plugin: PptxViewerPlugin,
 	) {
 		super(leaf);
-		this.selection.onChange(() => this.ribbon?.update());
+		this.selection.onChange(() => {
+			this.tableSelection.retain(this.selection.ids);
+			this.ribbon?.update();
+		});
+		this.tableSelection.onChange(() => {
+			this.tableSelection.paint(this.activeSlideEl);
+			this.ribbon?.update();
+		});
 	}
 
 	getViewType(): string {
@@ -110,6 +133,16 @@ export class PptxView extends FileView {
 			isEnabled: () => true,
 			editor: this.deckEditor,
 			onCancelled: () => this.viewer?.invalidate(),
+			onListLevel: (delta, target) =>
+				this.run((ctx) =>
+					applyParagraphFormatAt(
+						ctx,
+						target.shapeId,
+						target.paragraph,
+						{ levelDelta: delta },
+						delta > 0 ? "Indent" : "Outdent",
+					),
+				),
 		});
 
 		this.shapeEditor = new ShapeEditor({
@@ -121,6 +154,8 @@ export class PptxView extends FileView {
 			getScale: () => this.viewer?.currentScale() ?? 1,
 			getContext: () => this.context(),
 			onContextMenu: (event) => this.showContextMenu(event),
+			onCellPointerDown: (shape, row, column, additive) =>
+				this.tableSelection.select(shape.id, row, column, additive),
 		});
 
 		this.ribbon = new Ribbon(this.contentEl, buildTabs(this.ribbonHost()));
@@ -144,7 +179,18 @@ export class PptxView extends FileView {
 			fitMode: settings.fitMode,
 			editor: this.editController ?? undefined,
 			shapeEditor: this.shapeEditor ?? undefined,
-			onSlideChange: () => this.selection.clear(),
+			onSlideChange: () => {
+				this.selection.clear();
+				this.tableSelection.clear();
+			},
+			onRendered: (slideEl) => {
+				this.activeSlideEl = slideEl;
+				this.tableSelection.paint(slideEl);
+			},
+			onReorder: (from, to) => {
+				this.run((ctx) => reorderSlide(ctx, from, to));
+				this.viewer?.go(to);
+			},
 		});
 		if (slideNumber > 1) this.viewer.go(slideNumber - 1);
 		this.viewer.setDirty(loaded.pkg.isDirty);
@@ -161,7 +207,9 @@ export class PptxView extends FileView {
 			const slide = loaded.deck.slides[this.selection.slideIndex];
 			const existing = new Set((slide?.shapes ?? []).filter((s) => s.source).map((s) => s.id));
 			this.selection.retain(existing);
+			this.tableSelection.retain(this.selection.ids);
 			this.shapeEditor?.refresh();
+			this.tableSelection.paint(this.activeSlideEl);
 		}
 		this.viewer?.setDirty(true);
 		this.ribbon?.update();
@@ -236,6 +284,13 @@ export class PptxView extends FileView {
 			pickImage: () => this.pickImage(),
 			pickTable: () => this.pickTable(),
 			pickLayout: () => this.pickLayout(),
+			pickHyperlink: () => this.pickHyperlink(),
+			tableSelection: this.tableSelection,
+			slideBackground: () => {
+				const ctx = this.context();
+				const background = ctx?.slide.background;
+				return background?.kind === "solid" ? background.color : null;
+			},
 			exportPng: () => void this.exportCurrentSlide(),
 			extractMarkdown: () => {
 				if (this.loaded) void this.plugin.extractMarkdown(this.loaded, this.file);
@@ -273,6 +328,15 @@ export class PptxView extends FileView {
 					new Notice(`Could not insert the image: ${(error as Error).message}`, 8000);
 				}
 			})();
+		}).open();
+	}
+
+	private pickHyperlink(): void {
+		const ctx = this.context();
+		if (!ctx) return;
+		const current = hyperlinkState(ctx) ?? "";
+		new PromptModal(this.app, "Hyperlink", current, (value) => {
+			this.run((c) => setHyperlink(c, value === "" ? null : value));
 		}).open();
 	}
 
@@ -465,6 +529,8 @@ export class PptxView extends FileView {
 		this.shapeEditor = null;
 		this.deckEditor = null;
 		this.selection.clear();
+		this.tableSelection.clear();
+		this.activeSlideEl = null;
 		this.loaded = null;
 	}
 }

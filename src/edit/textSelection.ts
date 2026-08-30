@@ -63,6 +63,24 @@ export function currentTextSelection(): TextSelection | null {
 	return { box, body, runs, paragraphs };
 }
 
+/**
+ * The index of the paragraph the caret is in, even with nothing selected.
+ *
+ * Tab and Shift+Tab change one paragraph's list level, so they need this where a
+ * range-based selection would report nothing.
+ */
+export function caretParagraphIndex(box: HTMLElement): number | null {
+	const selection = window.getSelection();
+	if (!selection || selection.rangeCount === 0) return null;
+	const node = selection.getRangeAt(0).startContainer;
+	const el = node instanceof HTMLElement ? node : node.parentElement;
+	const para = el?.closest<HTMLElement>(".pptx-para");
+	if (!para || !box.contains(para)) return null;
+	const all = Array.from(box.querySelectorAll<HTMLElement>(".pptx-para"));
+	const index = all.indexOf(para);
+	return index === -1 ? null : index;
+}
+
 /** Character offset of a DOM position, counted from the start of `root`. */
 function offsetWithin(root: HTMLElement, node: Node, offset: number): number {
 	let count = 0;

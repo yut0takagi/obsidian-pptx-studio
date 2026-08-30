@@ -1,4 +1,5 @@
 import { textBodyRegistry } from "../render/renderSlide";
+import { caretParagraphIndex } from "./textSelection";
 import type { DeckEditor } from "./DeckEditor";
 import type { PartsPatch } from "./History";
 import { commitTextBody } from "./textEdit";
@@ -13,6 +14,8 @@ export interface EditControllerOptions {
 	 * so the slide is re-rendered to rebuild the element-to-model registries.
 	 */
 	onCancelled: () => void;
+	/** Tab and Shift+Tab, once the pending text has been committed. */
+	onListLevel: (delta: number, target: { shapeId: string; paragraph: number }) => void;
 }
 
 /**
@@ -105,9 +108,23 @@ export class EditController {
 		if (event.key === "Escape") {
 			event.preventDefault();
 			this.cancel();
-		} else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+			return;
+		}
+		if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
 			event.preventDefault();
 			this.commit();
+			return;
+		}
+		if (event.key === "Tab") {
+			event.preventDefault();
+			const box = this.activeBox;
+			if (!box) return;
+			const paragraph = caretParagraphIndex(box);
+			const shapeId = ownerShapeId(box);
+			this.commit();
+			if (paragraph !== null && shapeId !== null) {
+				this.options.onListLevel(event.shiftKey ? -1 : 1, { shapeId, paragraph });
+			}
 		}
 	};
 
@@ -154,4 +171,14 @@ export class EditController {
 		this.composing = false;
 		this.before = null;
 	}
+}
+
+/** The id of the shape a text box belongs to, read from its p:cNvPr. */
+function ownerShapeId(box: HTMLElement): string | null {
+	const sp = textBodyRegistry.get(box)?.source?.parentNode;
+	if (!(sp instanceof Element)) return null;
+	for (const node of Array.from(sp.getElementsByTagName("*"))) {
+		if (node.localName === "cNvPr") return node.getAttribute("id");
+	}
+	return null;
 }

@@ -503,3 +503,52 @@
 .pptx-marquee {
 	pointer-events: none;
 }
+
+/* A contextual tab disappears when it no longer applies to the selection. */
+.pptx-ribbon-tab.is-hidden {
+	display: none;
+}
+
+.pptx-ribbon-number {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 0 2px;
+}
+
+.pptx-ribbon-number-label {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	min-width: 1em;
+	text-align: right;
+}
+
+.pptx-ribbon-number input {
+	height: 24px;
+	font-size: var(--font-ui-smaller);
+	padding: 0 4px;
+}
+
+/* Table cells picked out for row, column and merge commands. */
+.pptx-cell-selected {
+	outline: 2px solid var(--interactive-accent, #2f6fed);
+	outline-offset: -2px;
+	background-image: linear-gradient(rgba(47, 111, 237, 0.14), rgba(47, 111, 237, 0.14));
+}
+
+/* Dragging a thumbnail to reorder the deck. */
+.pptx-thumb.is-dragging {
+	opacity: 0.4;
+}
+
+.pptx-thumb.is-drop-before {
+	box-shadow: inset 0 2px 0 0 var(--interactive-accent);
+}
+
+.pptx-thumb.is-drop-after {
+	box-shadow: inset 0 -2px 0 0 var(--interactive-accent);
+}
+
+.pptx-rotate:active {
+	cursor: grabbing;
+}
