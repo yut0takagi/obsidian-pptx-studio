@@ -8,7 +8,8 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "typecheck": "tsc -noEmit -skipLibCheck",
-    "smoke": "node esbuild.smoke.mjs && node scripts/smoke.cjs"
+    "smoke": "node esbuild.smoke.mjs && node scripts/smoke.cjs",
+    "fixture": "node scripts/make-fixture.mjs"
   },
   "keywords": [
     "obsidian",
