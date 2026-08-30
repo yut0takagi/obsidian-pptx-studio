@@ -16,6 +16,8 @@ export interface ShapeEditorOptions {
 	getScale: () => number;
 	getContext: () => CommandContext | null;
 	onContextMenu: (event: MouseEvent) => void;
+	/** Enter or F2 on a shape that holds text. */
+	onEditText?: (shapeId: string) => void;
 	/** Called when a click lands on a table cell, so the table editor can follow. */
 	onCellPointerDown?: (shape: Shape, row: number, column: number, additive: boolean) => void;
 	/** User guides to snap against, alongside the other shapes and the slide. */
@@ -835,6 +837,27 @@ export class ShapeEditor {
 			this.options.selection.clear();
 			return true;
 		}
+
+		// Tab walks the slide in stacking order, which is the only way to reach a
+		// shape sitting exactly behind another one from the keyboard.
+		if (event.key === "Tab") {
+			const ids = this.shapeIds();
+			if (ids.length === 0) return false;
+			const current = [...this.options.selection.ids][0];
+			const at = current ? ids.indexOf(current) : -1;
+			const step = event.shiftKey ? -1 : 1;
+			const next = ids[(at + step + ids.length) % ids.length] ?? ids[0];
+			this.options.selection.set(this.slideIndex, [next]);
+			return true;
+		}
+
+		if ((event.key === "Enter" || event.key === "F2") && this.options.selection.size === 1) {
+			const id = [...this.options.selection.ids][0];
+			if (id) {
+				this.options.onEditText?.(id);
+				return true;
+			}
+		}
 		if ((event.key === "Delete" || event.key === "Backspace") && ctx) {
 			if (this.options.selection.isEmpty) return false;
 			deleteSelection(ctx);
@@ -866,14 +889,19 @@ export class ShapeEditor {
 		return true;
 	}
 
+	private shapeIds(): string[] {
+		if (!this.slideEl) return [];
+		return Array.from(this.slideEl.querySelectorAll<HTMLElement>("[data-shape-id]"))
+			.map((el) => el.dataset.shapeId)
+			.filter((id): id is string => Boolean(id));
+	}
+
 	/** Select everything on the current slide. */
 	selectAll(): void {
 		const slideEl = this.slideEl;
 		if (!slideEl) return;
-		const ids = Array.from(slideEl.querySelectorAll<HTMLElement>("[data-shape-id]"))
-			.map((el) => el.dataset.shapeId)
-			.filter((id): id is string => Boolean(id));
-		this.options.selection.set(this.slideIndex, ids);
+		void slideEl;
+		this.options.selection.set(this.slideIndex, this.shapeIds());
 	}
 }
 

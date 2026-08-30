@@ -60,7 +60,24 @@ export class EditController {
 		this.begin(box, event);
 	};
 
-	private begin(box: HTMLElement, event: MouseEvent): void {
+	/**
+	 * Start editing without a click, for Enter and F2. The caret goes to the end
+	 * of the text, which is where someone pressing Enter to "start typing" means.
+	 */
+	beginAtEnd(box: HTMLElement): void {
+		if (!this.options.isEnabled() || box === this.activeBox) return;
+		this.commit();
+		this.begin(box, null);
+		const selection = window.getSelection();
+		if (!selection) return;
+		const range = document.createRange();
+		range.selectNodeContents(box);
+		range.collapse(false);
+		selection.removeAllRanges();
+		selection.addRange(range);
+	}
+
+	private begin(box: HTMLElement, event: MouseEvent | null): void {
 		this.activeBox = box;
 		this.originalHtml = box.innerHTML;
 		const part = textBodyRegistry.get(box)?.sourcePart;
@@ -77,7 +94,7 @@ export class EditController {
 		box.addEventListener("compositionend", this.onCompositionEnd);
 
 		box.focus({ preventScroll: true });
-		this.placeCaret(event);
+		if (event) this.placeCaret(event);
 	}
 
 	/** Put the caret where the user double-clicked rather than at the start. */

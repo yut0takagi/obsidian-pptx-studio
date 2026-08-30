@@ -186,6 +186,9 @@ const EN = {
 	"cmd.exportMarkdown": "Markdown",
 	"cmd.exportMarkdownTooltip": "Extract the deck's text to a note",
 
+	"ribbon.collapse": "Collapse the ribbon",
+	"ribbon.expand": "Expand the ribbon",
+	"status.multiple": "{n} shapes selected",
 	"pane.selection": "Selection",
 	"pane.empty": "Nothing on this slide yet.",
 	"pane.show": "Show",
@@ -457,6 +460,9 @@ const JA: Record<StringKey, string> = {
 	"cmd.exportMarkdown": "Markdown",
 	"cmd.exportMarkdownTooltip": "デッキの文字をノートに抽出する",
 
+	"ribbon.collapse": "リボンを折りたたむ",
+	"ribbon.expand": "リボンを展開する",
+	"status.multiple": "{n} 個のオブジェクトを選択中",
 	"pane.selection": "オブジェクトの選択",
 	"pane.empty": "このスライドにはまだ何もありません。",
 	"pane.show": "表示する",

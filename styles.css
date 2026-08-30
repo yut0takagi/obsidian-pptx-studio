@@ -718,3 +718,143 @@
 	color: var(--text-faint);
 	font-size: var(--font-ui-smaller);
 }
+
+/* ---------------------------------------------- ribbon: collapse & compact */
+
+.pptx-ribbon-tabs {
+	position: relative;
+}
+
+.pptx-ribbon-collapse {
+	margin-left: auto;
+	align-self: center;
+	padding: 2px 4px;
+}
+
+.pptx-ribbon-collapse .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
+.pptx-ribbon.is-collapsed .pptx-ribbon-body {
+	display: none;
+}
+
+/* A contextual tab is tinted so its arrival is noticed. */
+.pptx-ribbon-tab.is-contextual.is-active {
+	border-bottom-color: var(--text-accent);
+	color: var(--text-accent);
+}
+
+/* Narrow panes drop the labels rather than scrolling sideways. */
+.pptx-ribbon.is-compact .pptx-ribbon-label,
+.pptx-ribbon.is-compact .pptx-ribbon-group-title {
+	display: none;
+}
+
+.pptx-ribbon.is-compact .pptx-ribbon-group {
+	padding: 0 4px;
+}
+
+.pptx-ribbon.is-compact .pptx-ribbon-body {
+	padding-bottom: 4px;
+}
+
+/* ----------------------------------------------- floating selection toolbar */
+
+.pptx-context-toolbar {
+	position: fixed;
+	display: flex;
+	align-items: center;
+	gap: 1px;
+	padding: 3px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	box-shadow: var(--shadow-s);
+	z-index: var(--layer-popover, 30);
+}
+
+.pptx-ctx-btn {
+	appearance: none;
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	border-radius: var(--radius-s);
+	color: var(--text-normal);
+	cursor: pointer;
+}
+
+.pptx-ctx-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+.pptx-ctx-btn.is-active {
+	background: var(--background-modifier-active-hover, var(--background-modifier-hover));
+	color: var(--text-accent);
+}
+
+.pptx-ctx-btn .svg-icon {
+	width: 16px;
+	height: 16px;
+}
+
+.pptx-ctx-btn.has-menu::after {
+	content: "";
+	position: absolute;
+	right: 2px;
+	bottom: 2px;
+	border-left: 3px solid transparent;
+	border-top: 3px solid currentColor;
+	opacity: 0.5;
+}
+
+.pptx-ctx-swatch {
+	position: absolute;
+	left: 5px;
+	right: 5px;
+	bottom: 3px;
+	height: 3px;
+	border-radius: 1px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.pptx-ctx-swatch.is-none {
+	background: repeating-linear-gradient(
+		45deg,
+		var(--background-primary) 0 2px,
+		var(--text-faint) 2px 3px
+	);
+}
+
+.pptx-ctx-sep {
+	width: 1px;
+	align-self: stretch;
+	margin: 2px 3px;
+	background: var(--background-modifier-border);
+}
+
+/* ------------------------------------------------------- canvas feedback */
+
+/* A faint outline on hover says "this is a thing you can pick up". */
+.pptx-view .pptx-slide [data-selectable="1"]:hover {
+	outline: 1px solid rgba(47, 111, 237, 0.45);
+	outline-offset: 0;
+}
+
+.pptx-status {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	margin-left: var(--size-4-2);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 40%;
+}

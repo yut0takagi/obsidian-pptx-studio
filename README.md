@@ -52,6 +52,20 @@ The interface follows Obsidian's own display language, so a Japanese vault gets 
 Japanese ribbon with nothing to configure. Settings → PPTX Viewer → Language can
 pin it to English or Japanese instead.
 
+## Getting around
+
+The ribbon collapses with the chevron at the right of the tab strip, and
+remembers whether it was collapsed. In a narrow pane it drops its labels and
+group titles rather than scrolling sideways. Selecting a table brings up the
+Table tab automatically and deselecting it goes back to where you were.
+
+A small toolbar follows the selection with the things you reach for constantly —
+fill, outline, bold, arrange, duplicate, delete, and crop on a picture. Nothing
+lives only there; it is a shortcut to what the ribbon already has.
+
+Clicking in the ribbon never takes focus away from the slide, so the arrow keys
+keep working immediately afterwards.
+
 ## Keyboard
 
 | | |
@@ -64,6 +78,8 @@ pin it to English or Japanese instead.
 | double-click | edit a text box |
 | `Esc` | cancel an edit, or clear the selection |
 | `Cmd`/`Ctrl` + `Enter` | finish an edit |
+| `Tab` / `Shift`+`Tab` (nothing being edited) | walk through the shapes on the slide |
+| `Enter` or `F2` | edit the selected shape's text |
 | arrow keys (with a shape selected) | nudge 1px, `Shift` for 10px |
 | click / `Shift`+click / drag on empty canvas | select, extend, marquee |
 | `Cmd`/`Ctrl` + `A` | select every shape on the slide |

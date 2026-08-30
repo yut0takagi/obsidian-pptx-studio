@@ -28,6 +28,10 @@ export interface DeckViewerOptions {
 	onRendered?: (slideEl: HTMLElement | null) => void;
 	/** Dragging a thumbnail onto another position. */
 	onReorder?: (from: number, to: number) => void;
+	/** Right-clicking a thumbnail. */
+	onThumbnailMenu?: (index: number, event: MouseEvent) => void;
+	/** Zoom, scroll or resize: anything that moves the slide on screen. */
+	onViewportChanged?: () => void;
 	/** Show rulers around the slide, which is also how guides are created. */
 	showRulers?: boolean;
 	/** Reserve a column on the right for the selection pane. */
@@ -66,6 +70,7 @@ export class DeckViewer {
 	private counterEl: HTMLElement | null = null;
 	private zoomLabelEl: HTMLElement | null = null;
 	private saveButtonEl: HTMLElement | null = null;
+	private statusEl: HTMLElement | null = null;
 	private sidePaneEl: HTMLElement | null = null;
 	private rulerH: HTMLElement | null = null;
 	private rulerV: HTMLElement | null = null;
@@ -125,6 +130,7 @@ export class DeckViewer {
 		this.root.tabIndex = 0;
 		this.root.addEventListener("keydown", this.onKeyDown);
 		this.stageEl.addEventListener("wheel", this.onWheel, { passive: false });
+		this.stageEl.addEventListener("scroll", this.onViewportChanged, { passive: true });
 
 		this.resizeObserver = new ResizeObserver(() => this.applyScale());
 		this.resizeObserver.observe(this.stageEl);
@@ -139,6 +145,8 @@ export class DeckViewer {
 		this.iconButton(nav, "chevron-left", t("nav.previous"), () => this.go(this.index - 1));
 		this.counterEl = nav.createSpan({ cls: "pptx-counter" });
 		this.iconButton(nav, "chevron-right", t("nav.next"), () => this.go(this.index + 1));
+
+		this.statusEl = bar.createSpan({ cls: "pptx-status" });
 
 		const right = bar.createDiv({ cls: "pptx-toolbar-group pptx-toolbar-right" });
 		this.iconButton(right, "sticky-note", t("notes.toggle"), () => this.toggleNotes());
@@ -235,6 +243,11 @@ export class DeckViewer {
 			item.createSpan({ cls: "pptx-thumb-number", text: String(slide.index) });
 			item.createDiv({ cls: "pptx-thumb-frame" });
 			item.addEventListener("click", () => this.go(i));
+			item.addEventListener("contextmenu", (event) => {
+				event.preventDefault();
+				this.go(i);
+				this.options.onThumbnailMenu?.(i, event);
+			});
 			if (this.options.onReorder) this.makeThumbDraggable(item);
 			this.thumbObserver?.observe(item);
 		});
@@ -437,6 +450,7 @@ export class DeckViewer {
 		this.lastScale = scale;
 		this.options.shapeEditor?.refresh();
 		this.paintRulers();
+		this.options.onViewportChanged?.();
 	}
 
 	/** The factor the slide element is currently scaled by. */
@@ -445,6 +459,20 @@ export class DeckViewer {
 	}
 
 	private lastScale = 1;
+
+	private onViewportChanged = (): void => {
+		this.options.onViewportChanged?.();
+	};
+
+	/** The scrolling box the slide sits in, for positioning floating UI. */
+	get stageElement(): HTMLElement | null {
+		return this.stageEl ?? null;
+	}
+
+	/** A short line about the selection, shown next to the slide counter. */
+	setStatus(text: string): void {
+		this.statusEl?.setText(text);
+	}
 
 	/** Where the selection pane mounts, when one was asked for. */
 	get sidePane(): HTMLElement | null {
@@ -601,6 +629,7 @@ export class DeckViewer {
 		this.thumbObserver?.disconnect();
 		this.root.removeEventListener("keydown", this.onKeyDown);
 		this.stageEl?.removeEventListener("wheel", this.onWheel);
+		this.stageEl?.removeEventListener("scroll", this.onViewportChanged);
 		this.slideCache.clear();
 		this.root.detach();
 	}

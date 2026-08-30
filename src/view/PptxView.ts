@@ -26,12 +26,15 @@ import { ConflictError, saveDeck } from "../edit/save";
 import {
 	canDeleteSlide,
 	deleteCurrentSlide,
+	duplicateCurrentSlide,
 	listLayouts,
+	moveCurrentSlide,
 	newSlide,
 	reorderSlide,
 } from "../edit/slideCommands";
 import { rebuildDeck } from "../pptx/parse";
 import { DeckViewer } from "../render/DeckViewer";
+import { ContextToolbar } from "../ui/ContextToolbar";
 import { Ribbon } from "../ui/Ribbon";
 import { SelectionPane } from "../ui/SelectionPane";
 import {
@@ -58,6 +61,7 @@ export class PptxView extends FileView {
 	private showRulers = true;
 	private showSelectionPane = false;
 	private selectionPane: SelectionPane | null = null;
+	private contextToolbar: ContextToolbar | null = null;
 	private deckEditor: DeckEditor | null = null;
 	private readonly selection = new Selection();
 	private readonly tableSelection = new TableSelection();
@@ -76,6 +80,8 @@ export class PptxView extends FileView {
 			this.tableSelection.retain(this.selection.ids);
 			this.ribbon?.update();
 			this.selectionPane?.refresh();
+			this.updateStatus();
+			this.contextToolbar?.refresh();
 		});
 		this.tableSelection.onChange(() => {
 			this.tableSelection.paint(this.activeSlideEl);
@@ -166,7 +172,10 @@ export class PptxView extends FileView {
 		this.crop = new CropController({
 			getContext: () => this.context(),
 			getScale: () => this.viewer?.currentScale() ?? 1,
-			onChanged: () => this.ribbon?.update(),
+			onChanged: () => {
+				this.ribbon?.update();
+				this.contextToolbar?.refresh();
+			},
 		});
 
 		this.shapeEditor = new ShapeEditor({
@@ -178,6 +187,7 @@ export class PptxView extends FileView {
 			getScale: () => this.viewer?.currentScale() ?? 1,
 			getContext: () => this.context(),
 			onContextMenu: (event) => this.showContextMenu(event),
+			onEditText: (shapeId) => this.editTextOf(shapeId),
 			onCellPointerDown: (shape, row, column, additive) =>
 				this.tableSelection.select(shape.id, row, column, additive),
 			extraGuides: () => this.guides?.snapTargets() ?? { xs: [], ys: [] },
@@ -186,7 +196,35 @@ export class PptxView extends FileView {
 				(this.crop?.tryGrab(event) ?? false) || (this.guides?.tryGrab(event) ?? false),
 		});
 
-		this.ribbon = new Ribbon(this.contentEl, buildTabs(this.ribbonHost()));
+		this.contextToolbar = new ContextToolbar({
+			getContext: () => this.context(),
+			selection: this.selection,
+			tableSelection: this.tableSelection,
+			run: (fn) => this.run(fn),
+			getSlideEl: () => this.activeSlideEl,
+			getViewportEl: () => this.viewer?.stageElement ?? null,
+			getScale: () => this.viewer?.currentScale() ?? 1,
+			isEditing: () => this.editController?.isEditing ?? false,
+			canCrop: () => this.crop?.canCrop() ?? false,
+			cropActive: () => this.crop?.active ?? false,
+			toggleCrop: () => this.crop?.toggle(),
+		});
+
+		this.ribbon = new Ribbon(this.contentEl, buildTabs(this.ribbonHost()), {
+			collapsed: this.plugin.settings.ribbonCollapsed,
+			initialTab: this.plugin.settings.ribbonTab,
+			onStateChange: ({ collapsed, tab }) => {
+				if (
+					this.plugin.settings.ribbonCollapsed === collapsed &&
+					this.plugin.settings.ribbonTab === tab
+				) {
+					return;
+				}
+				this.plugin.settings.ribbonCollapsed = collapsed;
+				this.plugin.settings.ribbonTab = tab;
+				void this.plugin.saveSettings();
+			},
+		});
 		this.createViewer(1);
 		this.contentEl.addEventListener("keydown", this.onKeyDown, { capture: true });
 		this.viewer?.focus();
@@ -215,12 +253,15 @@ export class PptxView extends FileView {
 			sidePane: this.showSelectionPane,
 			onRulerDrag: (orientation, position, event) =>
 				this.guides?.beginFromRuler(event, orientation, position),
+			onViewportChanged: () => this.contextToolbar?.refresh(),
 			onRendered: (slideEl) => {
 				this.activeSlideEl = slideEl;
 				this.tableSelection.paint(slideEl);
 				this.guides?.setActive(slideEl);
 				this.crop?.setActive(slideEl);
+				this.contextToolbar?.refresh();
 			},
+			onThumbnailMenu: (index, event) => this.showSlideMenu(index, event),
 			onReorder: (from, to) => {
 				this.run((ctx) => reorderSlide(ctx, from, to));
 				this.viewer?.go(to);
@@ -258,6 +299,84 @@ export class PptxView extends FileView {
 		this.viewer?.setDirty(true);
 		this.ribbon?.update();
 		this.selectionPane?.refresh();
+		this.updateStatus();
+		this.contextToolbar?.refresh();
+	}
+
+	/** Open the text editor on a shape, for Enter and F2. */
+	private editTextOf(shapeId: string): void {
+		const slideEl = this.activeSlideEl;
+		if (!slideEl) return;
+		for (const el of Array.from(slideEl.querySelectorAll<HTMLElement>("[data-shape-id]"))) {
+			if (el.dataset.shapeId !== shapeId) continue;
+			const box = el.querySelector<HTMLElement>('[data-editable="1"]');
+			if (box) this.editController?.beginAtEnd(box);
+			return;
+		}
+	}
+
+	/** A short description of the selection, shown in the status bar. */
+	private updateStatus(): void {
+		const ctx = this.context();
+		if (!ctx || !this.viewer) return;
+		const shapes = selectedShapes(ctx);
+		if (shapes.length === 0) {
+			this.viewer.setStatus("");
+			return;
+		}
+		if (shapes.length > 1) {
+			this.viewer.setStatus(t("status.multiple", { n: shapes.length }));
+			return;
+		}
+		const shape = shapes[0];
+		const f = shape.frame;
+		this.viewer.setStatus(
+			`${shape.name || shape.kind} · ${Math.round(f.w)} × ${Math.round(f.h)} · ` +
+				`${Math.round(f.x)}, ${Math.round(f.y)}`,
+		);
+	}
+
+	/** Right-clicking a thumbnail. */
+	private showSlideMenu(index: number, event: MouseEvent): void {
+		const ctx = this.context();
+		if (!ctx) return;
+		const menu = new Menu();
+		menu.addItem((item) =>
+			item
+				.setTitle(t("cmd.newSlide"))
+				.setIcon("file-plus")
+				.onClick(() => this.runSlide((c) => newSlide(c))),
+		);
+		menu.addItem((item) =>
+			item
+				.setTitle(t("cmd.duplicateSlide"))
+				.setIcon("files")
+				.onClick(() => this.runSlide(duplicateCurrentSlide)),
+		);
+		menu.addSeparator();
+		menu.addItem((item) =>
+			item
+				.setTitle(t("cmd.moveSlideUp"))
+				.setIcon("arrow-up")
+				.setDisabled(index === 0)
+				.onClick(() => this.runSlide((c) => moveCurrentSlide(c, -1))),
+		);
+		menu.addItem((item) =>
+			item
+				.setTitle(t("cmd.moveSlideDown"))
+				.setIcon("arrow-down")
+				.setDisabled(index >= ctx.deck.slides.length - 1)
+				.onClick(() => this.runSlide((c) => moveCurrentSlide(c, 1))),
+		);
+		menu.addSeparator();
+		menu.addItem((item) =>
+			item
+				.setTitle(t("cmd.deleteSlide"))
+				.setIcon("trash-2")
+				.setDisabled(!canDeleteSlide(ctx))
+				.onClick(() => this.run(deleteCurrentSlide)),
+		);
+		menu.showAtMouseEvent(event);
 	}
 
 	private context(): CommandContext | null {
@@ -593,6 +712,8 @@ export class PptxView extends FileView {
 		this.contentEl.removeEventListener("keydown", this.onKeyDown, { capture: true });
 		this.selectionPane?.destroy();
 		this.selectionPane = null;
+		this.contextToolbar?.destroy();
+		this.contextToolbar = null;
 		this.viewer?.destroy();
 		this.ribbon?.destroy();
 		this.viewer = null;
