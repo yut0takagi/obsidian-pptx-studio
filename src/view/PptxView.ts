@@ -1,6 +1,7 @@
 import { FileView, Menu, Notice, type TFile, type WorkspaceLeaf } from "obsidian";
 import type { LoadedDeck } from "../DeckCache";
 import { relsPathFor } from "../ooxml/rels";
+import { DEFAULT_SETTINGS } from "../settings";
 import type { Deck } from "../pptx/types";
 import { DeckEditor } from "../edit/DeckEditor";
 import { EditController } from "../edit/EditController";
@@ -38,6 +39,8 @@ import { rebuildDeck, rebuildSlideAt } from "../pptx/parse";
 import { DeckViewer } from "../render/DeckViewer";
 import { ContextToolbar } from "../ui/ContextToolbar";
 import { Ribbon } from "../ui/Ribbon";
+import { InspectorPane } from "../ui/InspectorPane";
+import { PaneSplitter } from "../ui/PaneSplitter";
 import { SelectionPane } from "../ui/SelectionPane";
 import {
 	ImagePickerModal,
@@ -48,9 +51,9 @@ import {
 } from "../ui/modals";
 import { type RibbonHost, buildTabs } from "../ui/tabs";
 import { t } from "../i18n";
-import type PptxViewerPlugin from "../main";
+import type PptxStudioPlugin from "../main";
 
-export const VIEW_TYPE_PPTX = "pptx-viewer";
+export const VIEW_TYPE_PPTX = "pptx-studio";
 
 /** Parts that say nothing about the model's structure, whatever else changed. */
 const NEUTRAL = ["ppt/media/", "[Content_Types].xml", "ppt/viewProps.xml"];
@@ -86,6 +89,8 @@ export class PptxView extends FileView {
 	private showRulers = true;
 	private showSelectionPane = false;
 	private selectionPane: SelectionPane | null = null;
+	private inspectorPane: InspectorPane | null = null;
+	private sideSplitter: PaneSplitter | null = null;
 	private contextToolbar: ContextToolbar | null = null;
 	private uiFrame = 0;
 	private deckEditor: DeckEditor | null = null;
@@ -99,7 +104,7 @@ export class PptxView extends FileView {
 
 	constructor(
 		leaf: WorkspaceLeaf,
-		private readonly plugin: PptxViewerPlugin,
+		private readonly plugin: PptxStudioPlugin,
 	) {
 		super(leaf);
 		this.selection.onChange(() => {
@@ -172,6 +177,11 @@ export class PptxView extends FileView {
 			isEnabled: () => true,
 			editor: this.deckEditor,
 			onCancelled: () => this.viewer?.invalidate(),
+			onReturnToShape: () => this.viewer?.focus(),
+			onModeChange: (editing) => {
+				this.shapeEditor?.setEditing(editing);
+				this.scheduleUi();
+			},
 			onListLevel: (delta, target) =>
 				this.run((ctx) =>
 					applyParagraphFormatAt(
@@ -208,6 +218,13 @@ export class PptxView extends FileView {
 			getContext: () => this.context(),
 			onContextMenu: (event) => this.showContextMenu(event),
 			onEditText: (shapeId) => this.editTextOf(shapeId),
+			onTypeText: (shapeId, text) => this.replaceTextOf(shapeId, text),
+			// The border, the handles and the other shapes all belong to the box
+			// rather than to its text, so a press on one ends the text edit first.
+			onLeaveText: () => {
+				this.editController?.commit();
+				this.viewer?.focus();
+			},
 			onCellPointerDown: (shape, row, column, additive) =>
 				this.tableSelection.select(shape.id, row, column, additive),
 			extraGuides: () => this.guides?.snapTargets() ?? { xs: [], ys: [] },
@@ -271,6 +288,12 @@ export class PptxView extends FileView {
 			},
 			showRulers: this.showRulers,
 			sidePane: this.showSelectionPane,
+			sidePaneWidth: settings.sidePaneWidth,
+			onSidePaneWidth: (width) => {
+				if (settings.sidePaneWidth === width) return;
+				settings.sidePaneWidth = width;
+				void this.plugin.saveSettings();
+			},
 			onRulerDrag: (orientation, position, event) =>
 				this.guides?.beginFromRuler(event, orientation, position),
 			onViewportChanged: () => this.contextToolbar?.refresh(),
@@ -296,8 +319,59 @@ export class PptxView extends FileView {
 					getContext: () => this.context(),
 					selection: this.selection,
 					run: (fn) => this.run(fn),
+					collapsed: settings.shapeListCollapsed,
+					onCollapsed: (collapsed) => {
+						settings.shapeListCollapsed = collapsed;
+						void this.plugin.saveSettings();
+						this.updateSideLayout();
+					},
 				})
 			: null;
+		// The divider goes between the two sections, so it is built between them.
+		this.sideSplitter =
+			host && this.selectionPane
+				? new PaneSplitter(host, {
+						above: this.selectionPane.element,
+						height: settings.shapeListHeight,
+						defaultHeight: DEFAULT_SETTINGS.shapeListHeight,
+						onHeight: (height) => {
+							if (settings.shapeListHeight === height) return;
+							settings.shapeListHeight = height;
+							void this.plugin.saveSettings();
+						},
+					})
+				: null;
+		this.inspectorPane = host
+			? new InspectorPane(host, {
+					getContext: () => this.context(),
+					run: (fn) => this.run(fn),
+					collapsed: settings.inspectorCollapsed,
+					onCollapsed: (collapsed) => {
+						settings.inspectorCollapsed = collapsed;
+						void this.plugin.saveSettings();
+						this.updateSideLayout();
+					},
+				})
+			: null;
+		this.updateSideLayout();
+	}
+
+	/**
+	 * Who gets the space in the side pane.
+	 *
+	 * With both sections open the divider decides, and the shape list holds the
+	 * height it was dragged to. Fold one away and the question stops being a
+	 * question: the other takes everything that is left, and the divider goes.
+	 */
+	private updateSideLayout(): void {
+		const settings = this.plugin.settings;
+		const list = this.selectionPane?.element;
+		if (!list) return;
+		const bothOpen = !settings.shapeListCollapsed && !settings.inspectorCollapsed;
+		list.toggleClass("is-flexible", !bothOpen && !settings.shapeListCollapsed);
+		this.sideSplitter?.setEnabled(bothOpen);
+		if (bothOpen) this.sideSplitter?.setHeight(settings.shapeListHeight);
+		else list.style.height = "";
 	}
 
 	/** Rebuild the model and repaint after an edit. */
@@ -339,21 +413,38 @@ export class PptxView extends FileView {
 			this.uiFrame = 0;
 			this.ribbon?.update();
 			this.selectionPane?.refresh();
+			this.inspectorPane?.refresh();
 			this.contextToolbar?.refresh();
 			this.updateStatus();
 		});
 	}
 
-	/** Open the text editor on a shape, for Enter and F2. */
-	private editTextOf(shapeId: string): void {
+	/** The editable text box of a shape on the current slide, if it has one. */
+	private editableBoxOf(shapeId: string): HTMLElement | null {
 		const slideEl = this.activeSlideEl;
-		if (!slideEl) return;
+		if (!slideEl) return null;
 		for (const el of Array.from(slideEl.querySelectorAll<HTMLElement>("[data-shape-id]"))) {
 			if (el.dataset.shapeId !== shapeId) continue;
-			const box = el.querySelector<HTMLElement>('[data-editable="1"]');
-			if (box) this.editController?.beginAtEnd(box);
-			return;
+			return el.querySelector<HTMLElement>('[data-editable="1"]');
 		}
+		return null;
+	}
+
+	/** Open the text editor on a shape, for Enter and F2. */
+	private editTextOf(shapeId: string): void {
+		const box = this.editableBoxOf(shapeId);
+		if (box) this.editController?.beginAtEnd(box);
+	}
+
+	/**
+	 * Typing on a selected shape opens its text and replaces what was there.
+	 * Returns false for a shape with no text, leaving the key to its other uses.
+	 */
+	private replaceTextOf(shapeId: string, text: string): boolean {
+		const box = this.editableBoxOf(shapeId);
+		if (!box) return false;
+		this.editController?.beginReplacing(box, text);
+		return true;
 	}
 
 	/** A short description of the selection, shown in the status bar. */
@@ -526,6 +617,10 @@ export class PptxView extends FileView {
 		const current = this.viewer?.currentSlideNumber ?? 1;
 		this.selectionPane?.destroy();
 		this.selectionPane = null;
+		this.sideSplitter?.destroy();
+		this.sideSplitter = null;
+		this.inspectorPane?.destroy();
+		this.inspectorPane = null;
 		this.viewer?.destroy();
 		this.createViewer(current);
 		this.scheduleUi();
@@ -755,6 +850,10 @@ export class PptxView extends FileView {
 		this.contentEl.removeEventListener("keydown", this.onKeyDown, { capture: true });
 		this.selectionPane?.destroy();
 		this.selectionPane = null;
+		this.sideSplitter?.destroy();
+		this.sideSplitter = null;
+		this.inspectorPane?.destroy();
+		this.inspectorPane = null;
 		this.contextToolbar?.destroy();
 		this.contextToolbar = null;
 		this.viewer?.destroy();

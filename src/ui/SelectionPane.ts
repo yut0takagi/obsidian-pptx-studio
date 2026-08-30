@@ -3,12 +3,16 @@ import type { CommandContext } from "../edit/commands";
 import { renameShape, reorderSelection, setShapeHidden, shapeListing } from "../edit/commands";
 import type { Selection } from "../edit/Selection";
 import { t } from "../i18n";
+import { buildPaneHeader } from "./paneHeader";
 import type { Shape } from "../pptx/types";
 
 export interface SelectionPaneOptions {
 	getContext: () => CommandContext | null;
 	selection: Selection;
 	run: (fn: (ctx: CommandContext) => unknown) => void;
+	/** Start folded away, and report a fold back so it can be remembered. */
+	collapsed?: boolean;
+	onCollapsed?: (collapsed: boolean) => void;
 }
 
 /**
@@ -27,9 +31,16 @@ export class SelectionPane {
 		private readonly options: SelectionPaneOptions,
 	) {
 		this.root = containerEl.createDiv({ cls: "pptx-selection-pane" });
-		this.root.createDiv({ cls: "pptx-pane-title", text: t("pane.selection") });
+		buildPaneHeader(this.root, t("pane.selection"), {
+			collapsed: options.collapsed ?? false,
+			onToggle: (collapsed) => options.onCollapsed?.(collapsed),
+		});
 		this.listEl = this.root.createDiv({ cls: "pptx-pane-list" });
 		this.refresh();
+	}
+
+	get element(): HTMLElement {
+		return this.root;
 	}
 
 	refresh(): void {

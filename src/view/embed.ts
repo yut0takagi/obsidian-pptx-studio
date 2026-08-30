@@ -1,7 +1,7 @@
 import { MarkdownRenderChild, type TFile } from "obsidian";
 import { t } from "../i18n";
 import { DeckViewer } from "../render/DeckViewer";
-import type PptxViewerPlugin from "../main";
+import type PptxStudioPlugin from "../main";
 
 /**
  * Render `![[deck.pptx]]` and `![[deck.pptx#3]]` inside notes.
@@ -9,7 +9,7 @@ import type PptxViewerPlugin from "../main";
  * Obsidian only produces an `.internal-embed` span for extensions it knows
  * about, which is why the plugin registers "pptx" before this ever runs.
  */
-export function registerPptxEmbeds(plugin: PptxViewerPlugin): void {
+export function registerPptxEmbeds(plugin: PptxStudioPlugin): void {
 	plugin.registerMarkdownPostProcessor((el, ctx) => {
 		for (const span of Array.from(el.querySelectorAll<HTMLElement>("span.internal-embed"))) {
 			const src = span.getAttribute("src");
@@ -46,7 +46,7 @@ class PptxEmbed extends MarkdownRenderChild {
 
 	constructor(
 		containerEl: HTMLElement,
-		private readonly plugin: PptxViewerPlugin,
+		private readonly plugin: PptxStudioPlugin,
 		private readonly file: TFile,
 		private readonly slideNumber: number | undefined,
 	) {

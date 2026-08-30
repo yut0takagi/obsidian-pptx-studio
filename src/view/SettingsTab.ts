@@ -1,9 +1,9 @@
 import { PluginSettingTab, Setting } from "obsidian";
 import { t } from "../i18n";
-import type PptxViewerPlugin from "../main";
+import type PptxStudioPlugin from "../main";
 
 export class PptxSettingsTab extends PluginSettingTab {
-	constructor(private readonly plugin: PptxViewerPlugin) {
+	constructor(private readonly plugin: PptxStudioPlugin) {
 		super(plugin.app, plugin);
 	}
 

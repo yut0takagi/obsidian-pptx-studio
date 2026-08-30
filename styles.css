@@ -250,6 +250,36 @@
 	z-index: 10;
 }
 
+/*
+ * The caret is drawn outside the slide, in screen pixels, because the slide's
+ * fit-to-pane transform would otherwise scale the browser's own caret down to a
+ * grey hairline. The halo keeps it legible over dark artwork as well as light.
+ */
+.pptx-caret {
+	position: fixed;
+	width: 2px;
+	margin-left: -1px;
+	z-index: 100;
+	pointer-events: none;
+	border-radius: 1px;
+	background: var(--interactive-accent, #2b7fff);
+	box-shadow:
+		0 0 0 1px rgba(255, 255, 255, 0.85),
+		0 0 3px rgba(0, 0, 0, 0.45);
+	animation: pptx-caret-blink 1.06s steps(1, end) infinite;
+}
+
+@keyframes pptx-caret-blink {
+	0%,
+	49% {
+		opacity: 1;
+	}
+	50%,
+	100% {
+		opacity: 0;
+	}
+}
+
 .pptx-bullet {
 	cursor: default;
 }
@@ -329,12 +359,20 @@
 	font-weight: var(--font-medium);
 }
 
+/*
+ * Every tab is one row of controls plus a group title, so the body's natural
+ * height is the same on all of them and switching tabs moves nothing. Keeping
+ * it automatic rather than pinning a number means a taller control, or a theme
+ * with a larger UI font, grows the ribbon instead of being clipped by it.
+ */
 .pptx-ribbon-body {
 	display: flex;
 	align-items: stretch;
 	gap: 0;
 	padding: 4px 6px;
+	box-sizing: border-box;
 	overflow-x: auto;
+	overflow-y: hidden;
 }
 
 .pptx-ribbon-group {
@@ -345,12 +383,18 @@
 	min-width: 0;
 }
 
+/*
+ * Groups stay on one row. Wrapping was what made Home — the tab with the most
+ * controls — twice as tall as the others in a narrow pane, so the slide jumped
+ * down every time you switched to it. Sideways scrolling is the trade.
+ */
 .pptx-ribbon-row {
 	display: flex;
 	align-items: center;
 	gap: 2px;
-	flex-wrap: wrap;
-	min-height: 28px;
+	flex-wrap: nowrap;
+	height: 28px;
+	flex: 0 0 auto;
 }
 
 .pptx-ribbon-group-title {
@@ -642,26 +686,221 @@
 
 /* ------------------------------------------------------- selection pane */
 
+/*
+ * The strip you drag to widen the side pane. The pane's own left border is the
+ * line that is seen; this sits beside it purely to be grabbed, and only tints
+ * itself once the pointer is on it.
+ */
+.pptx-side-resizer {
+	flex: 0 0 5px;
+	cursor: col-resize;
+	background: transparent;
+	transition: background 100ms ease-out;
+}
+
+.pptx-side-resizer:hover,
+.pptx-side-resizer.is-dragging {
+	background: var(--interactive-accent);
+}
+
+/* The shape list on top, the inspector below it; each scrolls on its own. */
 .pptx-side {
-	flex: 0 0 200px;
+	display: flex;
+	flex-direction: column;
+	flex: 0 0 260px;
+	/* The width is set on the element by the divider drag, so never grow past it. */
+	max-width: 100%;
 	border-left: 1px solid var(--background-modifier-border);
 	background: var(--background-primary);
-	overflow-y: auto;
+	overflow: hidden;
 	min-height: 0;
 }
 
 .pptx-selection-pane {
 	display: flex;
 	flex-direction: column;
-	height: 100%;
+	/* Its height is whatever the divider between the two sections was left at. */
+	flex: 0 0 auto;
+	min-height: 0;
 }
 
+/* With the inspector folded away, the list takes everything that is left. */
+.pptx-selection-pane.is-flexible {
+	flex: 1 1 auto;
+}
+
+.pptx-selection-pane.is-collapsed,
+.pptx-inspector-pane.is-collapsed {
+	flex: 0 0 auto;
+}
+
+.pptx-selection-pane.is-collapsed .pptx-pane-list,
+.pptx-inspector-pane.is-collapsed .pptx-inspector-body {
+	display: none;
+}
+
+/* The line between the two sections; the inspector's own border is what shows. */
+.pptx-pane-splitter {
+	flex: 0 0 5px;
+	cursor: row-resize;
+	background: transparent;
+	transition: background 100ms ease-out;
+}
+
+.pptx-pane-splitter:hover,
+.pptx-pane-splitter.is-dragging {
+	background: var(--interactive-accent);
+}
+
+.pptx-pane-splitter.is-hidden {
+	display: none;
+}
+
+.pptx-inspector-pane {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.pptx-pane-copy {
+	padding: 2px;
+}
+
+.pptx-pane-copy .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
+/* Values are here to be read off and pasted into a script, so let them select. */
+.pptx-inspector-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 0 var(--size-4-2) var(--size-4-2);
+	user-select: text;
+}
+
+.pptx-props {
+	display: flex;
+	flex-direction: column;
+}
+
+.pptx-prop {
+	display: flex;
+	gap: 6px;
+	font-size: var(--font-ui-smaller);
+	line-height: 1.55;
+}
+
+.pptx-prop-key {
+	flex: 0 0 36%;
+	color: var(--text-faint);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.pptx-prop-value {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-family: var(--font-monospace);
+	word-break: break-word;
+}
+
+.pptx-prop-value.is-editable {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 1px 4px;
+}
+
+/* A field that reads as text until you click it, so the pane stays a readout. */
+.pptx-prop-input {
+	/* The EMU note drops to its own line rather than squeezing the field. */
+	flex: 1 1 70px;
+	min-width: 0;
+	height: 20px;
+	padding: 0 3px;
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: var(--radius-s);
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-normal);
+}
+
+.pptx-prop-input:hover {
+	border-color: var(--background-modifier-border);
+}
+
+.pptx-prop-input:focus {
+	border-color: var(--interactive-accent);
+	background: var(--background-primary);
+	outline: none;
+}
+
+.pptx-prop-note {
+	flex: 0 0 auto;
+	color: var(--text-faint);
+	font-size: 10px;
+	white-space: nowrap;
+}
+
+.pptx-pane-note {
+	margin-top: var(--size-4-1);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+}
+
+.pptx-xml {
+	margin: var(--size-4-2) 0 0;
+	padding: var(--size-4-1);
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+	font-size: 11px;
+	line-height: 1.4;
+	white-space: pre;
+	overflow: auto;
+	max-height: 46vh;
+	tab-size: 2;
+}
+
+/* The whole bar folds the section, so it reads and behaves as one control. */
 .pptx-pane-title {
+	display: flex;
+	align-items: center;
+	gap: 4px;
 	font-size: var(--font-ui-smaller);
 	text-transform: uppercase;
 	letter-spacing: 0.06em;
 	color: var(--text-faint);
 	padding: var(--size-4-2) var(--size-4-2) var(--size-4-1);
+	cursor: pointer;
+	user-select: none;
+}
+
+.pptx-pane-title:hover {
+	color: var(--text-muted);
+}
+
+.pptx-pane-heading {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pptx-pane-chevron {
+	display: inline-flex;
+	align-items: center;
+}
+
+.pptx-pane-chevron .svg-icon {
+	width: 12px;
+	height: 12px;
 }
 
 .pptx-pane-list {
@@ -749,10 +988,6 @@
 .pptx-ribbon-collapse .svg-icon {
 	width: 14px;
 	height: 14px;
-}
-
-.pptx-ribbon.is-collapsed .pptx-ribbon-body {
-	display: none;
 }
 
 /* A contextual tab is tinted so its arrival is noticed. */
@@ -934,10 +1169,12 @@
 	pointer-events: none;
 }
 
+/* Collapsing animates a max-height, since the open height is left automatic. */
 .pptx-ribbon-body {
-	transition: max-height 140ms ease-out;
-	max-height: 120px;
-	overflow: hidden;
+	transition:
+		max-height 140ms ease-out,
+		padding 140ms ease-out;
+	max-height: 200px;
 }
 
 .pptx-ribbon.is-collapsed .pptx-ribbon-body {
@@ -960,7 +1197,9 @@
 @media (prefers-reduced-motion: reduce) {
 	.pptx-canvas.is-enter-forward,
 	.pptx-canvas.is-enter-back,
-	.pptx-thumb.is-new .pptx-thumb-frame {
+	.pptx-thumb.is-new .pptx-thumb-frame,
+	/* A caret that does not blink is still a caret; it just sits there. */
+	.pptx-caret {
 		animation: none;
 	}
 

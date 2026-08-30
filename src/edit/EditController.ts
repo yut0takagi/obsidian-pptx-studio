@@ -1,4 +1,5 @@
 import { textBodyRegistry } from "../render/renderSlide";
+import { CaretPainter } from "./CaretPainter";
 import { caretParagraphIndex } from "./textSelection";
 import type { DeckEditor } from "./DeckEditor";
 import type { PartsPatch } from "./History";
@@ -16,6 +17,14 @@ export interface EditControllerOptions {
 	onCancelled: () => void;
 	/** Tab and Shift+Tab, once the pending text has been committed. */
 	onListLevel: (delta: number, target: { shapeId: string; paragraph: number }) => void;
+	/** Editing started or ended, so the selection can be drawn differently. */
+	onModeChange?: (editing: boolean) => void;
+	/**
+	 * The user asked to go back to holding the shape — Escape, or Cmd+Enter. The
+	 * canvas takes the keyboard again here; leaving focus on the box that is
+	 * about to be re-rendered would strand the arrow keys.
+	 */
+	onReturnToShape?: () => void;
 }
 
 /**
@@ -29,6 +38,7 @@ export class EditController {
 	private activeBox: HTMLElement | null = null;
 	private originalHtml = "";
 	private composing = false;
+	private readonly caret = new CaretPainter();
 	/** The slide part as it was before this edit session began. */
 	private before: PartsPatch | null = null;
 
@@ -68,11 +78,30 @@ export class EditController {
 		if (!this.options.isEnabled() || box === this.activeBox) return;
 		this.commit();
 		this.begin(box, null);
+		this.selectAllText(box, true);
+	}
+
+	/**
+	 * Start editing by typing over the shape, which replaces what was there.
+	 *
+	 * Selecting a shape and typing means "this shape says that now" — the same
+	 * gesture as in PowerPoint, and the reason typing is not simply ignored while
+	 * a shape rather than its text is selected.
+	 */
+	beginReplacing(box: HTMLElement, initial: string): void {
+		if (!this.options.isEnabled() || box === this.activeBox) return;
+		this.commit();
+		this.begin(box, null);
+		this.selectAllText(box, false);
+		document.execCommand("insertText", false, initial);
+	}
+
+	private selectAllText(box: HTMLElement, collapseToEnd: boolean): void {
 		const selection = window.getSelection();
 		if (!selection) return;
 		const range = document.createRange();
 		range.selectNodeContents(box);
-		range.collapse(false);
+		if (collapseToEnd) range.collapse(false);
 		selection.removeAllRanges();
 		selection.addRange(range);
 	}
@@ -90,11 +119,13 @@ export class EditController {
 
 		box.addEventListener("keydown", this.onKeyDown);
 		box.addEventListener("focusout", this.onFocusOut);
+		this.options.onModeChange?.(true);
 		box.addEventListener("compositionstart", this.onCompositionStart);
 		box.addEventListener("compositionend", this.onCompositionEnd);
 
 		box.focus({ preventScroll: true });
 		if (event) this.placeCaret(event);
+		this.caret.start(box);
 	}
 
 	/** Put the caret where the user double-clicked rather than at the start. */
@@ -123,13 +154,17 @@ export class EditController {
 		event.stopPropagation();
 		if (this.composing) return;
 		if (event.key === "Escape") {
+			// PowerPoint's Escape leaves text editing and keeps the shape selected;
+			// it does not throw the typing away, which is what a revert here would do.
 			event.preventDefault();
-			this.cancel();
+			this.commit();
+			this.options.onReturnToShape?.();
 			return;
 		}
 		if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
 			event.preventDefault();
 			this.commit();
+			this.options.onReturnToShape?.();
 			return;
 		}
 		if (event.key === "Tab") {
@@ -176,6 +211,7 @@ export class EditController {
 	}
 
 	private teardown(box: HTMLElement): void {
+		this.caret.stop();
 		box.contentEditable = "false";
 		box.removeClass("is-editing");
 		box.style.overflow = "";
@@ -183,6 +219,7 @@ export class EditController {
 		box.removeEventListener("focusout", this.onFocusOut);
 		box.removeEventListener("compositionstart", this.onCompositionStart);
 		box.removeEventListener("compositionend", this.onCompositionEnd);
+		this.options.onModeChange?.(false);
 		this.activeBox = null;
 		this.originalHtml = "";
 		this.composing = false;

@@ -497,7 +497,7 @@ const slide1 = slideXml(
 			ph: { type: "ctrTitle" },
 			text: {
 				anchor: "b",
-				paragraphs: [{ runs: [{ t: "PPTX Viewer" }] }],
+				paragraphs: [{ runs: [{ t: "PPTX Studio" }] }],
 			},
 		}),
 		shape({
@@ -911,13 +911,13 @@ const files = {
 		`${DECL}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ` +
 		'xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" ' +
 		'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
-		"<dc:title>PPTX Viewer fixture</dc:title><dc:creator>obsidian-pptx-viewer</dc:creator>" +
-		"<cp:lastModifiedBy>obsidian-pptx-viewer</cp:lastModifiedBy></cp:coreProperties>",
+		"<dc:title>PPTX Studio fixture</dc:title><dc:creator>obsidian-pptx-studio</dc:creator>" +
+		"<cp:lastModifiedBy>obsidian-pptx-studio</cp:lastModifiedBy></cp:coreProperties>",
 
 	"docProps/app.xml":
 		`${DECL}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" ` +
 		'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
-		`<Application>obsidian-pptx-viewer</Application><Slides>${slides.length}</Slides></Properties>`,
+		`<Application>obsidian-pptx-studio</Application><Slides>${slides.length}</Slides></Properties>`,
 
 	"ppt/presentation.xml":
 		`${DECL}<p:presentation ${NS} saveSubsetFonts="1">` +

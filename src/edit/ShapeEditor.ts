@@ -18,6 +18,14 @@ export interface ShapeEditorOptions {
 	onContextMenu: (event: MouseEvent) => void;
 	/** Enter or F2 on a shape that holds text. */
 	onEditText?: (shapeId: string) => void;
+	/**
+	 * A printable key pressed on a selected shape, which retypes its text.
+	 * Returns false when the shape holds no editable text, so the key can fall
+	 * through to whatever else wanted it.
+	 */
+	onTypeText?: (shapeId: string, text: string) => boolean;
+	/** Leave text editing, because this press was aimed at the shape itself. */
+	onLeaveText?: () => void;
 	/** Called when a click lands on a table cell, so the table editor can follow. */
 	onCellPointerDown?: (shape: Shape, row: number, column: number, additive: boolean) => void;
 	/** User guides to snap against, alongside the other shapes and the slide. */
@@ -119,6 +127,37 @@ export class ShapeEditor {
 		slideEl.addEventListener("contextmenu", this.onContextMenu);
 	}
 
+	/**
+	 * The empty space around the slide.
+	 *
+	 * A lasso meant to take in the shapes along the slide's edge naturally
+	 * starts outside it, which used to do nothing at all: the only place a
+	 * marquee could begin was on the slide's own background.
+	 */
+	attachBackdrop(el: HTMLElement): void {
+		el.addEventListener("pointerdown", this.onBackdropPointerDown);
+	}
+
+	detachBackdrop(el: HTMLElement): void {
+		el.removeEventListener("pointerdown", this.onBackdropPointerDown);
+	}
+
+	private onBackdropPointerDown = (event: PointerEvent): void => {
+		if (event.button !== 0 || !this.slideEl) return;
+		const target = event.target;
+		// Only the backdrop itself: a press that reached a ruler, the toolbar or
+		// the slide belongs to whatever it landed on.
+		if (
+			target !== event.currentTarget &&
+			!(target instanceof HTMLElement && target.classList.contains("pptx-canvas"))
+		) {
+			return;
+		}
+		if (this.editing) this.options.onLeaveText?.();
+		else if (!this.options.isEnabled()) return;
+		this.beginMarquee(event, event.shiftKey || event.metaKey || event.ctrlKey);
+	};
+
 	detach(slideEl: HTMLElement): void {
 		slideEl.removeEventListener("pointerdown", this.onPointerDown);
 		slideEl.removeEventListener("contextmenu", this.onContextMenu);
@@ -129,6 +168,20 @@ export class ShapeEditor {
 	setActive(slideEl: HTMLElement | null): void {
 		this.clearLayers();
 		this.slideEl = slideEl;
+		this.syncOverlay();
+	}
+
+	/** True while a text box is open, which the selection is drawn to reflect. */
+	private editing = false;
+
+	/**
+	 * The text editor opened or closed. A box is either being held — moved,
+	 * resized, restyled as a whole — or being typed into, and the border says
+	 * which: solid for held, dashed for typing, as in PowerPoint.
+	 */
+	setEditing(editing: boolean): void {
+		if (this.editing === editing) return;
+		this.editing = editing;
 		this.syncOverlay();
 	}
 
@@ -235,7 +288,7 @@ export class ShapeEditor {
 			top: `${bounds.y}px`,
 			width: `${bounds.w}px`,
 			height: `${bounds.h}px`,
-			outline: `${border}px solid var(--interactive-accent, #2f6fed)`,
+			outline: `${border}px ${this.editing ? "dashed" : "solid"} var(--interactive-accent, #2f6fed)`,
 			transform: single?.frame.rot ? `rotate(${single.frame.rot}deg)` : "",
 			transformOrigin: "center center",
 		});
@@ -307,52 +360,85 @@ export class ShapeEditor {
 		this.options.onContextMenu(event);
 	};
 
+	/**
+	 * A press that belongs to the text rather than to the box holding it: inside
+	 * the box being edited, and away from its border. The band is measured in
+	 * screen pixels because it is a grip for the pointer, not part of the slide.
+	 */
+	private isTextPress(event: PointerEvent, target: HTMLElement): boolean {
+		const box = target.closest<HTMLElement>('[data-editable="1"].is-editing');
+		if (!box) return false;
+		const rect = box.getBoundingClientRect();
+		const edge = 6;
+		return !(
+			event.clientX - rect.left < edge ||
+			rect.right - event.clientX < edge ||
+			event.clientY - rect.top < edge ||
+			rect.bottom - event.clientY < edge
+		);
+	}
+
 	private onPointerDown = (event: PointerEvent): void => {
-		if (!this.options.isEnabled() || event.button !== 0) return;
+		if (event.button !== 0) return;
 		const target = event.target;
 		if (!(target instanceof HTMLElement)) return;
 		this.slideEl = event.currentTarget as HTMLElement;
 
-		// A press on a guide moves the guide, not whatever is behind it.
-		if (!target.closest("[data-handle],[data-rotate]") && this.options.claimPointer?.(event)) {
+		// What was pressed is read before anything else happens: leaving a text
+		// edit re-renders the slide, and these elements do not survive that. Ids
+		// and screen coordinates do, and they are all the rest of this needs.
+		const onRotate = Boolean(target.closest("[data-rotate]"));
+		const handleId = target.closest<HTMLElement>("[data-handle]")?.dataset.handle as
+			| HandleId
+			| undefined;
+		const shapeId = target.closest<HTMLElement>('[data-selectable="1"]')?.dataset.shapeId;
+		const cellEl = target.closest<HTMLElement>("[data-cell-row]");
+
+		if (this.editing) {
+			// While the caret is in a box there are two gestures on it: the text
+			// takes presses in its middle, and the box itself takes everything else
+			// — its border, its handles, and any other shape on the slide. Leaving
+			// the text first is what turns the press back into a plain grab.
+			if (!onRotate && !handleId && this.isTextPress(event, target)) return;
+			event.preventDefault();
+			this.options.onLeaveText?.();
+		} else if (!this.options.isEnabled()) {
 			return;
 		}
 
-		if (target.closest<HTMLElement>("[data-rotate]")) {
+		// A press on a guide moves the guide, not whatever is behind it.
+		if (!onRotate && !handleId && this.options.claimPointer?.(event)) return;
+
+		if (onRotate) {
 			this.beginRotate(event);
 			return;
 		}
-		const handle = target.closest<HTMLElement>("[data-handle]");
-		if (handle) {
-			this.beginResize(event, handle.dataset.handle as HandleId);
+		if (handleId) {
+			this.beginResize(event, handleId);
 			return;
 		}
 
-		const shapeEl = target.closest<HTMLElement>('[data-selectable="1"]');
 		const additive = event.shiftKey || event.metaKey || event.ctrlKey;
-
-		if (!shapeEl) {
+		if (!shapeId) {
 			this.beginMarquee(event, additive);
 			return;
 		}
-		const id = shapeEl.dataset.shapeId;
-		if (!id) return;
 
 		if (additive) {
-			this.options.selection.toggle(this.slideIndex, id);
-			if (!this.options.selection.has(id)) return;
-		} else if (!this.options.selection.has(id)) {
-			this.options.selection.set(this.slideIndex, [id]);
+			this.options.selection.toggle(this.slideIndex, shapeId);
+			if (!this.options.selection.has(shapeId)) return;
+		} else if (!this.options.selection.has(shapeId)) {
+			this.options.selection.set(this.slideIndex, [shapeId]);
 		}
 
 		// A click inside a table tells the table editor which cell was hit.
-		const shape = shapeRegistry.get(shapeEl);
-		const cell = target.closest<HTMLElement>("[data-cell-row]");
-		if (shape?.kind === "table" && cell && this.options.onCellPointerDown) {
+		const shapeEl = this.elementFor(shapeId);
+		const shape = shapeEl ? shapeRegistry.get(shapeEl) : undefined;
+		if (shape?.kind === "table" && cellEl && this.options.onCellPointerDown) {
 			this.options.onCellPointerDown(
 				shape,
-				Number(cell.dataset.cellRow),
-				Number(cell.dataset.cellCol),
+				Number(cellEl.dataset.cellRow),
+				Number(cellEl.dataset.cellCol),
 				event.shiftKey,
 			);
 		}
@@ -863,6 +949,19 @@ export class ShapeEditor {
 			deleteSelection(ctx);
 			return true;
 		}
+		// Typing over a selected shape replaces its text, as in PowerPoint. This
+		// sits above the modifier bail-out so Shift-typed capitals still count.
+		if (
+			event.key.length === 1 &&
+			!event.metaKey &&
+			!event.ctrlKey &&
+			!event.altKey &&
+			this.options.selection.size === 1
+		) {
+			const id = [...this.options.selection.ids][0];
+			if (id && this.options.onTypeText?.(id, event.key)) return true;
+		}
+
 		if (event.metaKey || event.ctrlKey || event.altKey) return false;
 
 		const step = event.shiftKey ? 10 : 1;

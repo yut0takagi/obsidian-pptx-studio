@@ -1,4 +1,4 @@
-# PPTX Viewer for Obsidian
+# PPTX Studio for Obsidian
 
 View, edit and save PowerPoint decks without leaving Obsidian.
 
@@ -8,10 +8,20 @@ and cannot be linked to. This plugin registers the extension and renders slides
 directly from the OOXML, with no external converter and nothing to install
 alongside it.
 
+## Install
+
+Not in the community plugin browser yet. Either install it with
+[BRAT](https://github.com/TfTHacker/obsidian42-brat) by pointing it at
+`yut0takagi/obsidian-pptx-studio`, or do it by hand: download `main.js`,
+`manifest.json` and `styles.css` from the
+[latest release](https://github.com/yut0takagi/obsidian-pptx-studio/releases/latest)
+into `<vault>/.obsidian/plugins/pptx-studio/`, then enable **PPTX Studio** under
+Settings → Community plugins.
+
 ## Features
 
 - **Deck view** — click a `.pptx` in the file explorer to open it. Thumbnail
-  rail, `←`/`→` (or `j`/`k`) to page, zoom, speaker notes.
+  rail, `↑`/`↓` (or `k`/`j`) to page, zoom, speaker notes.
 - **Edit text in place** — double-click a text box, type, `Cmd/Ctrl+S` to save.
   Only the slide XML you touched is rewritten; every other part of the file is
   repacked byte for byte, so animations, transitions, embedded fonts and any
@@ -49,7 +59,7 @@ alongside it.
 ## Language
 
 The interface follows Obsidian's own display language, so a Japanese vault gets a
-Japanese ribbon with nothing to configure. Settings → PPTX Viewer → Language can
+Japanese ribbon with nothing to configure. Settings → PPTX Studio → Language can
 pin it to English or Japanese instead.
 
 ## Getting around
@@ -66,22 +76,61 @@ lives only there; it is a shortcut to what the ribbon already has.
 Clicking in the ribbon never takes focus away from the slide, so the arrow keys
 keep working immediately afterwards.
 
+## Seeing the XML
+
+The side pane (View → Selection) lists every shape on the slide, and underneath
+it shows what the file actually says about the selected one: its `p:cNvPr` id,
+the element it is (`p:sp`, `p:pic`, `p:graphicFrame`), the part it lives in, its
+placeholder type, and its position and size as both pixels on screen and the raw
+EMU stored in `a:off` / `a:ext`. A shape with no `a:xfrm` of its own says so,
+rather than quietly reporting the frame it inherited from the layout.
+
+The frame, the rotation and the name are fields rather than labels: type over
+one and press Enter. A length takes pixels, or a number with a unit — `emu`,
+`pt`, `in`, `cm`, `mm` — so a value read out of another file can be pasted in as
+it stands. Everything a field writes goes through the same commands the ribbon
+uses, so it undoes with `Cmd`/`Ctrl`+`Z` like any other edit. The shape id, the
+part and the element stay read-only.
+
+Below that is the shape's XML, indented and scrollable, with a button that
+copies it.
+
+Drag the pane's left edge to resize it, and the line between the shape list and
+the properties to change how the height is shared. Either section folds away by
+clicking its title, and whichever is left open takes the whole column. Widths,
+heights and folds are all remembered; double-clicking a divider puts it back.
+
+## Holding a box, and typing in it
+
+A box is in one of two states, and its border says which. A **solid** border
+means you are holding the box: dragging moves it, the handles resize it, the
+arrow keys nudge it, and typing replaces its text. A **dashed** border means you
+are inside the text: there is a caret, and the keys go to it.
+
+Double-click, `Enter` or `F2` goes from holding to typing; `Esc` or `Cmd`/`Ctrl`
++`Enter` goes back, keeping what was typed. While you are typing, the border and
+the handles still belong to the box — dragging one leaves the text and moves or
+resizes the box in the same gesture — and so does a press on any other shape,
+which simply selects it.
+
 ## Keyboard
 
 | | |
 |---|---|
-| `←` `→` / `j` `k` / `PageUp` `PageDown` | previous / next slide |
+| `↑` `↓` / `k` `j` / `PageUp` `PageDown` | previous / next slide |
 | `Home` `End` | first / last slide |
 | `+` `-` / `0` | zoom in, out, fit to pane |
 | `Cmd`/`Ctrl` + wheel | zoom |
 | `N` | toggle speaker notes |
 | double-click | edit a text box |
-| `Esc` | cancel an edit, or clear the selection |
+| `Esc` | leave a text edit, keeping what was typed, or clear the selection |
 | `Cmd`/`Ctrl` + `Enter` | finish an edit |
 | `Tab` / `Shift`+`Tab` (nothing being edited) | walk through the shapes on the slide |
 | `Enter` or `F2` | edit the selected shape's text |
+| typing with a shape selected | replace the shape's text with what you type |
+| drag the edited box's border or a handle | leave the text, and move or resize the box |
 | arrow keys (with a shape selected) | nudge 1px, `Shift` for 10px |
-| click / `Shift`+click / drag on empty canvas | select, extend, marquee |
+| click / `Shift`+click / drag on empty space | select, extend, marquee — the drag can start on the slide or in the space around it |
 | `Cmd`/`Ctrl` + `A` | select every shape on the slide |
 | `Cmd`/`Ctrl` + `C` / `X` / `V` / `D` | copy, cut, paste, duplicate |
 | `Delete` | delete the selection |

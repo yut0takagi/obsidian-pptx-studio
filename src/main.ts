@@ -3,13 +3,13 @@ import { setLanguage, t } from "./i18n";
 import { DeckCache, type LoadedDeck } from "./DeckCache";
 import { deckToMarkdown } from "./export/markdown";
 import { pngFileName, renderSlideToPng } from "./export/png";
-import { DEFAULT_SETTINGS, type PptxViewerSettings } from "./settings";
+import { DEFAULT_SETTINGS, type PptxStudioSettings } from "./settings";
 import { PptxSettingsTab } from "./view/SettingsTab";
 import { PptxView, VIEW_TYPE_PPTX } from "./view/PptxView";
 import { registerPptxEmbeds } from "./view/embed";
 
-export default class PptxViewerPlugin extends Plugin {
-	settings: PptxViewerSettings = DEFAULT_SETTINGS;
+export default class PptxStudioPlugin extends Plugin {
+	settings: PptxStudioSettings = DEFAULT_SETTINGS;
 	decks!: DeckCache;
 
 	async onload(): Promise<void> {

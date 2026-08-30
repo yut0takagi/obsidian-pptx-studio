@@ -36,6 +36,9 @@ export interface DeckViewerOptions {
 	showRulers?: boolean;
 	/** Reserve a column on the right for the selection pane. */
 	sidePane?: boolean;
+	/** Its width in pixels, and where a drag on its edge reports the new one. */
+	sidePaneWidth?: number;
+	onSidePaneWidth?: (width: number) => void;
 	/** Dragging out of a ruler, with the slide coordinate the drag started at. */
 	onRulerDrag?: (
 		orientation: "horz" | "vert",
@@ -52,6 +55,14 @@ export interface DeckViewerOptions {
 }
 
 const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.75, 1, 1.25, 1.5, 2, 3];
+
+/** Side pane widths: narrow enough to be a strip, wide enough to read XML in. */
+const SIDE_DEFAULT = 260;
+const SIDE_MIN = 160;
+const SIDE_MAX = 720;
+
+const clampSideWidth = (width: number): number =>
+	Math.max(SIDE_MIN, Math.min(SIDE_MAX, Math.round(width)));
 
 /**
  * The deck viewer UI. Slides render once at native size and are scaled with a
@@ -72,6 +83,8 @@ export class DeckViewer {
 	private saveButtonEl: HTMLElement | null = null;
 	private statusEl: HTMLElement | null = null;
 	private sidePaneEl: HTMLElement | null = null;
+	private sideResizerEl: HTMLElement | null = null;
+	private sideDrag: { pointerId: number; startX: number; startWidth: number } | null = null;
 	private rulerH: HTMLElement | null = null;
 	private rulerV: HTMLElement | null = null;
 
@@ -116,9 +129,16 @@ export class DeckViewer {
 		this.stageEl = area.createDiv({ cls: "pptx-stage" });
 		if (this.options.showRulers && !this.options.compact) this.stageEl.addClass("has-rulers");
 		this.canvasEl = this.stageEl.createDiv({ cls: "pptx-canvas" });
+		this.options.shapeEditor?.attachBackdrop(this.stageEl);
 
 		if (this.options.sidePane && !this.options.compact) {
+			this.sideResizerEl = body.createDiv({ cls: "pptx-side-resizer" });
+			this.sideResizerEl.addEventListener("pointerdown", this.onSideResizeStart);
+			// Double-clicking a divider putting it back where it started is the
+			// convention everywhere else that has one.
+			this.sideResizerEl.addEventListener("dblclick", () => this.setSideWidth(SIDE_DEFAULT));
 			this.sidePaneEl = body.createDiv({ cls: "pptx-side" });
+			this.sidePaneEl.style.flexBasis = `${clampSideWidth(this.options.sidePaneWidth ?? SIDE_DEFAULT)}px`;
 		}
 
 		if (!this.options.compact) {
@@ -394,7 +414,16 @@ export class DeckViewer {
 	}
 
 	private showSlide(index: number): void {
-		this.options.onSlideChange?.(index);
+		// Repainting the current slide after an edit is not a slide change.
+		// Reporting it as one is what used to drop the selection every time a
+		// ribbon command ran — press "centre", lose the shape you centred. The
+		// slide's own part path is the identity, so deleting or reordering
+		// slides still counts as a change even when the index stays put.
+		const identity = this.deck.slides[index]?.partPath ?? null;
+		if (identity !== this.notifiedSlide) {
+			this.notifiedSlide = identity;
+			this.options.onSlideChange?.(index);
+		}
 		const el = this.slideElement(index);
 		this.canvasEl.empty();
 		if (el) this.canvasEl.appendChild(el);
@@ -490,6 +519,48 @@ export class DeckViewer {
 		return this.sidePaneEl;
 	}
 
+	/** Set the side pane's width and re-fit the slide into what is left. */
+	private setSideWidth(width: number): void {
+		if (!this.sidePaneEl) return;
+		const clamped = clampSideWidth(width);
+		this.sidePaneEl.style.flexBasis = `${clamped}px`;
+		this.applyScale();
+		this.options.onViewportChanged?.();
+	}
+
+	private onSideResizeStart = (event: PointerEvent): void => {
+		if (event.button !== 0 || !this.sidePaneEl) return;
+		event.preventDefault();
+		this.sideDrag = {
+			pointerId: event.pointerId,
+			startX: event.clientX,
+			startWidth: this.sidePaneEl.getBoundingClientRect().width,
+		};
+		this.sideResizerEl?.addClass("is-dragging");
+		window.addEventListener("pointermove", this.onSideResizeMove);
+		window.addEventListener("pointerup", this.onSideResizeEnd);
+		window.addEventListener("pointercancel", this.onSideResizeEnd);
+	};
+
+	private onSideResizeMove = (event: PointerEvent): void => {
+		const drag = this.sideDrag;
+		if (!drag || event.pointerId !== drag.pointerId) return;
+		// The pane is on the right, so pulling the divider left widens it.
+		this.setSideWidth(drag.startWidth - (event.clientX - drag.startX));
+	};
+
+	private onSideResizeEnd = (event: PointerEvent): void => {
+		const drag = this.sideDrag;
+		if (!drag || event.pointerId !== drag.pointerId) return;
+		this.sideDrag = null;
+		this.sideResizerEl?.removeClass("is-dragging");
+		window.removeEventListener("pointermove", this.onSideResizeMove);
+		window.removeEventListener("pointerup", this.onSideResizeEnd);
+		window.removeEventListener("pointercancel", this.onSideResizeEnd);
+		const width = this.sidePaneEl?.getBoundingClientRect().width;
+		if (width) this.options.onSidePaneWidth?.(Math.round(width));
+	};
+
 	/** Slide count, for callers driving navigation from outside. */
 	get slideCount(): number {
 		return this.deck.slides.length;
@@ -557,6 +628,8 @@ export class DeckViewer {
 	}
 
 	private navigationDirection: "forward" | "back" | null = null;
+	/** The slide `onSlideChange` last reported, by part path. */
+	private notifiedSlide: string | null = null;
 
 	private onKeyDown = (event: KeyboardEvent): void => {
 		// A selected shape claims the arrow keys for nudging before paging sees them.
@@ -566,12 +639,14 @@ export class DeckViewer {
 			return;
 		}
 		switch (event.key) {
-			case "ArrowRight":
+			// Slides are stacked vertically in the rail, so they are paged the way
+			// they are stacked: down is the next one.
+			case "ArrowDown":
 			case "PageDown":
 			case "j":
 				this.go(this.index + 1);
 				break;
-			case "ArrowLeft":
+			case "ArrowUp":
 			case "PageUp":
 			case "k":
 				this.go(this.index - 1);
@@ -693,6 +768,10 @@ export class DeckViewer {
 		this.resizeObserver?.disconnect();
 		this.thumbObserver?.disconnect();
 		this.root.removeEventListener("keydown", this.onKeyDown);
+		window.removeEventListener("pointermove", this.onSideResizeMove);
+		window.removeEventListener("pointerup", this.onSideResizeEnd);
+		window.removeEventListener("pointercancel", this.onSideResizeEnd);
+		if (this.stageEl) this.options.shapeEditor?.detachBackdrop(this.stageEl);
 		this.stageEl?.removeEventListener("wheel", this.onWheel);
 		this.stageEl?.removeEventListener("scroll", this.onViewportChanged);
 		this.slideCache.clear();
