@@ -1,0 +1,258 @@
+/* ---------------------------------------------------------------- layout */
+
+.pptx-view {
+	padding: 0;
+	overflow: hidden;
+}
+
+.pptx-viewer {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	outline: none;
+	background: var(--background-secondary);
+}
+
+.pptx-viewer.is-compact {
+	height: 100%;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	overflow: hidden;
+}
+
+.pptx-body {
+	display: flex;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+/* --------------------------------------------------------------- toolbar */
+
+.pptx-toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	padding: var(--size-4-1) var(--size-4-2);
+	border-bottom: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	flex: 0 0 auto;
+}
+
+.pptx-toolbar-group {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-1);
+}
+
+.pptx-toolbar-right {
+	margin-left: auto;
+}
+
+.pptx-counter,
+.pptx-zoom-label {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+	min-width: 3.5em;
+	text-align: center;
+	user-select: none;
+}
+
+.pptx-zoom-label {
+	cursor: pointer;
+}
+
+.pptx-zoom-label:hover {
+	color: var(--text-normal);
+}
+
+/* An unsaved deck gets a dot on the save button, the way a dirty tab does. */
+.pptx-save.is-dirty {
+	position: relative;
+	color: var(--text-accent);
+}
+
+.pptx-save.is-dirty::after {
+	content: "";
+	position: absolute;
+	top: 3px;
+	right: 3px;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--text-accent);
+}
+
+/* ----------------------------------------------------------- thumbnails */
+
+.pptx-rail {
+	flex: 0 0 168px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding: var(--size-4-2);
+	border-right: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+.pptx-thumb {
+	display: flex;
+	gap: var(--size-4-1);
+	align-items: flex-start;
+	cursor: pointer;
+	border-radius: var(--radius-s);
+	padding: 2px;
+}
+
+.pptx-thumb:hover {
+	background: var(--background-modifier-hover);
+}
+
+.pptx-thumb.is-active .pptx-thumb-frame {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
+}
+
+.pptx-thumb-number {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	font-variant-numeric: tabular-nums;
+	min-width: 1.6em;
+	text-align: right;
+	padding-top: 2px;
+}
+
+.pptx-thumb-frame {
+	flex: 1 1 auto;
+	position: relative;
+	overflow: hidden;
+	border-radius: 2px;
+	background: var(--background-primary);
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
+.pptx-thumb-frame > * {
+	transform-origin: top left;
+}
+
+/* --------------------------------------------------------------- stage */
+
+.pptx-stage {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--size-4-3);
+}
+
+.pptx-viewer.is-compact .pptx-stage {
+	padding: 0;
+}
+
+.pptx-canvas {
+	position: relative;
+	flex: 0 0 auto;
+	margin: auto;
+}
+
+.pptx-slide {
+	transform-origin: top left;
+	box-shadow: 0 2px 14px rgba(0, 0, 0, 0.22);
+	/* Slides carry their own colours; never let the Obsidian theme bleed in. */
+	color-scheme: light;
+}
+
+/* ---------------------------------------------------------------- notes */
+
+.pptx-notes {
+	flex: 0 0 auto;
+	max-height: 30%;
+	overflow-y: auto;
+	padding: var(--size-4-2) var(--size-4-3);
+	border-top: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+}
+
+.pptx-notes.is-hidden {
+	display: none;
+}
+
+.pptx-notes-title {
+	font-size: var(--font-ui-smaller);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--text-faint);
+	margin-bottom: var(--size-4-1);
+}
+
+.pptx-notes-body {
+	white-space: pre-wrap;
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+}
+
+.pptx-notes.is-empty .pptx-notes-body {
+	color: var(--text-faint);
+	font-style: italic;
+}
+
+/* -------------------------------------------------------------- editing */
+
+.pptx-text[data-editable="1"] {
+	cursor: text;
+}
+
+.pptx-text[data-editable="1"]:hover {
+	outline: 1px dashed rgba(0, 0, 0, 0.25);
+	outline-offset: 2px;
+}
+
+.pptx-text.is-editing {
+	outline: 2px solid #2b7fff;
+	outline-offset: 2px;
+	background: rgba(43, 127, 255, 0.05);
+	z-index: 10;
+}
+
+.pptx-bullet {
+	cursor: default;
+}
+
+/* ------------------------------------------------------------- messages */
+
+.pptx-message {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	padding: var(--size-4-6);
+	color: var(--text-muted);
+	text-align: center;
+}
+
+.pptx-error-title {
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+}
+
+.pptx-error-detail {
+	font-size: var(--font-ui-small);
+	max-width: 42em;
+}
+
+/* --------------------------------------------------------------- embeds */
+
+.pptx-embed {
+	display: block;
+	margin: var(--size-4-3) 0;
+	resize: vertical;
+	overflow: hidden;
+	min-height: 120px;
+}

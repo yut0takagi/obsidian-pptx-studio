@@ -1,0 +1,31 @@
+{
+  "name": "obsidian-pptx-viewer",
+  "version": "0.1.0",
+  "description": "View PowerPoint (.pptx) decks natively in Obsidian.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "typecheck": "tsc -noEmit -skipLibCheck",
+    "smoke": "node esbuild.smoke.mjs && node scripts/smoke.cjs"
+  },
+  "keywords": [
+    "obsidian",
+    "pptx",
+    "powerpoint",
+    "ooxml"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "@xmldom/xmldom": "^0.9.12",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.23.0",
+    "obsidian": "^1.7.2",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
+  }
+}
