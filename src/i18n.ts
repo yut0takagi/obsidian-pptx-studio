@@ -1,5 +1,3 @@
-import { getLanguage } from "obsidian";
-
 /**
  * Interface strings.
  *
@@ -598,7 +596,15 @@ let active: Language = "en";
 /** Resolve the setting to a concrete language, following Obsidian when asked. */
 export function resolveLanguage(setting: LanguageSetting): Language {
 	if (setting !== "auto") return setting;
-	return getLanguage().startsWith("ja") ? "ja" : "en";
+	return detectedLanguage().startsWith("ja") ? "ja" : "en";
+}
+
+function detectedLanguage(): string {
+	const documentLanguage =
+		typeof document !== "undefined" ? document.documentElement.lang : "";
+	const navigatorLanguage =
+		typeof navigator !== "undefined" ? (navigator.languages?.[0] ?? navigator.language) : "";
+	return documentLanguage || navigatorLanguage || "en";
 }
 
 export function setLanguage(setting: LanguageSetting): void {

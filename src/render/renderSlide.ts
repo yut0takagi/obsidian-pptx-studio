@@ -457,14 +457,14 @@ function renderLine(shape: LineShape): HTMLElement {
 	if (!shape.stroke) return el;
 	const w = Math.max(shape.frame.w, 1);
 	const h = Math.max(shape.frame.h, 1);
-	const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+	const svg = createSvg("svg");
 	svg.setAttribute("width", "100%");
 	svg.setAttribute("height", "100%");
 	svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
 	svg.setAttribute("preserveAspectRatio", "none");
 	svg.setCssStyles({ overflow: "visible" });
 
-	const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+	const line = createSvg("line");
 	line.setAttribute("x1", "0");
 	line.setAttribute("y1", "0");
 	line.setAttribute("x2", String(w));

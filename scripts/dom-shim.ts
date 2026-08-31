@@ -30,6 +30,7 @@ export function installDom(): void {
 	}
 
 	g.createEl = (tag: string) => document.createElement(tag);
+	g.createSvg = (tag: string) => document.createElementNS("http://www.w3.org/2000/svg", tag);
 	g.createDiv = () => document.createElement("div");
 	g.createSpan = () => document.createElement("span");
 

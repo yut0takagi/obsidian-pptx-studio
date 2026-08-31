@@ -1,6 +1,6 @@
 {
   "name": "obsidian-pptx-studio",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Open, edit and inspect PowerPoint (.pptx) decks natively in Obsidian: a PowerPoint-style editing surface, an OOXML property inspector, slide embeds, Markdown extraction and PNG export.",
   "main": "main.js",
   "private": true,

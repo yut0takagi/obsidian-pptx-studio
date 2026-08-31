@@ -1,10 +1,161 @@
-import { PluginSettingTab, Setting } from "obsidian";
+import { PluginSettingTab, Setting, type SettingDefinitionItem } from "obsidian";
 import { t } from "../i18n";
 import type PptxStudioPlugin from "../main";
+import type { PptxStudioSettings } from "../settings";
 
 export class PptxSettingsTab extends PluginSettingTab {
 	constructor(private readonly plugin: PptxStudioPlugin) {
 		super(plugin.app, plugin);
+	}
+
+	getSettingDefinitions(): SettingDefinitionItem<keyof PptxStudioSettings>[] {
+		return [
+			{
+				type: "group",
+				heading: t("settings.viewer"),
+				items: [
+					{
+						name: t("settings.language"),
+						desc: t("settings.languageDesc"),
+						control: {
+							type: "dropdown",
+							key: "language",
+							options: {
+								auto: t("settings.languageAuto"),
+								en: "English",
+								ja: "日本語",
+							},
+						},
+					},
+					{
+						name: t("settings.thumbnails"),
+						desc: t("settings.thumbnailsDesc"),
+						control: { type: "toggle", key: "showThumbnails" },
+					},
+					{
+						name: t("settings.notes"),
+						desc: t("settings.notesDesc"),
+						control: { type: "toggle", key: "showNotes" },
+					},
+					{
+						name: t("settings.zoom"),
+						desc: t("settings.zoomDesc"),
+						control: {
+							type: "dropdown",
+							key: "fitMode",
+							options: {
+								page: t("settings.zoomPage"),
+								width: t("settings.zoomWidth"),
+							},
+						},
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: t("settings.embeds"),
+				items: [
+					{
+						name: t("settings.embedHeight"),
+						desc: t("settings.embedHeightDesc"),
+						control: {
+							type: "slider",
+							key: "embedMaxHeight",
+							min: 200,
+							max: 900,
+							step: 20,
+						},
+					},
+					{
+						name: t("settings.embedControls"),
+						desc: t("settings.embedControlsDesc"),
+						control: { type: "toggle", key: "embedControls" },
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: t("settings.export"),
+				items: [
+					{
+						name: t("settings.pngResolution"),
+						desc: t("settings.pngResolutionDesc"),
+						control: {
+							type: "dropdown",
+							key: "exportScale",
+							options: {
+								"1": "1×",
+								"2": "2×",
+								"3": "3×",
+							},
+						},
+					},
+					{
+						name: t("settings.exportFolder"),
+						desc: t("settings.exportFolderDesc"),
+						control: {
+							type: "text",
+							key: "exportFolder",
+							placeholder: "assets/slides",
+						},
+					},
+					{
+						name: t("settings.includeNotes"),
+						desc: t("settings.includeNotesDesc"),
+						control: { type: "toggle", key: "includeNotes" },
+					},
+					{
+						name: t("settings.linkBack"),
+						desc: t("settings.linkBackDesc"),
+						control: { type: "toggle", key: "includeSourceLink" },
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: t("settings.editing"),
+				items: [{ name: t("settings.editing"), desc: t("settings.editingDesc") }],
+			},
+		];
+	}
+
+	getControlValue(key: keyof PptxStudioSettings): unknown {
+		if (key === "exportScale") return String(this.plugin.settings.exportScale);
+		return this.plugin.settings[key];
+	}
+
+	async setControlValue(key: keyof PptxStudioSettings, value: unknown): Promise<void> {
+		switch (key) {
+			case "language":
+				this.plugin.settings.language =
+					value === "en" || value === "ja" ? value : "auto";
+				await this.plugin.saveSettings();
+				this.update();
+				this.plugin.refreshViews();
+				return;
+			case "showThumbnails":
+			case "showNotes":
+			case "embedControls":
+			case "includeNotes":
+			case "includeSourceLink":
+				this.plugin.settings[key] = value === true;
+				break;
+			case "fitMode":
+				this.plugin.settings.fitMode = value === "width" ? "width" : "page";
+				break;
+			case "embedMaxHeight":
+				this.plugin.settings.embedMaxHeight = typeof value === "number" ? value : 420;
+				break;
+			case "exportScale":
+				this.plugin.settings.exportScale = Number(value) || 2;
+				break;
+			case "exportFolder":
+				this.plugin.settings.exportFolder = String(value ?? "").trim();
+				break;
+			default:
+				return;
+		}
+		await this.plugin.saveSettings();
 	}
 
 	display(): void {
