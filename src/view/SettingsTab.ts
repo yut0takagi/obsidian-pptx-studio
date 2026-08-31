@@ -130,7 +130,6 @@ export class PptxSettingsTab extends PluginSettingTab {
 				this.plugin.settings.language =
 					value === "en" || value === "ja" ? value : "auto";
 				await this.plugin.saveSettings();
-				this.update();
 				this.plugin.refreshViews();
 				return;
 			case "showThumbnails":
