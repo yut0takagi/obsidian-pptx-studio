@@ -503,7 +503,7 @@ export function parseBackground(bg: Element | null, ctx: ParseContext): Fill | n
 		const source =
 			idx >= 1001 ? ctx.theme.fmt.bgFillStyles[idx - 1001] : ctx.theme.fmt.fillStyles[idx - 1];
 		if (!source) return phClr ? { kind: "solid", color: phClr } : null;
-		const holder = source.ownerDocument.createElement("holder");
+		const holder = source.ownerDocument.createElementNS(source.namespaceURI, "holder");
 		holder.appendChild(source.cloneNode(true));
 		return parseFill(holder, ctx, phClr);
 	}

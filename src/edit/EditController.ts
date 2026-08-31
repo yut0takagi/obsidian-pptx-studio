@@ -36,7 +36,7 @@ export interface EditControllerOptions {
  */
 export class EditController {
 	private activeBox: HTMLElement | null = null;
-	private originalHtml = "";
+	private originalNodes: Node[] = [];
 	private composing = false;
 	private readonly caret = new CaretPainter();
 	/** The slide part as it was before this edit session began. */
@@ -60,7 +60,7 @@ export class EditController {
 	private onDoubleClick = (event: MouseEvent): void => {
 		if (!this.options.isEnabled()) return;
 		const target = event.target;
-		if (!(target instanceof HTMLElement)) return;
+		if (!isHtmlElement(target)) return;
 		const box = target.closest<HTMLElement>('[data-editable="1"]');
 		if (!box) return;
 		event.preventDefault();
@@ -108,14 +108,14 @@ export class EditController {
 
 	private begin(box: HTMLElement, event: MouseEvent | null): void {
 		this.activeBox = box;
-		this.originalHtml = box.innerHTML;
+		this.originalNodes = Array.from(box.childNodes).map((node) => node.cloneNode(true));
 		const part = textBodyRegistry.get(box)?.sourcePart;
 		this.before = part ? this.options.editor.capture([part]) : null;
 		box.contentEditable = "true";
 		box.spellcheck = false;
 		box.addClass("is-editing");
 		// Text can overflow its shape while typing; let it be seen rather than clipped.
-		box.style.overflow = "visible";
+		box.setCssStyles({ overflow: "visible" });
 
 		box.addEventListener("keydown", this.onKeyDown);
 		box.addEventListener("focusout", this.onFocusOut);
@@ -205,7 +205,8 @@ export class EditController {
 	cancel(): void {
 		const box = this.activeBox;
 		if (!box) return;
-		box.innerHTML = this.originalHtml;
+		box.empty();
+		box.append(...this.originalNodes.map((node) => node.cloneNode(true)));
 		this.teardown(box);
 		this.options.onCancelled();
 	}
@@ -214,14 +215,14 @@ export class EditController {
 		this.caret.stop();
 		box.contentEditable = "false";
 		box.removeClass("is-editing");
-		box.style.overflow = "";
+		box.setCssStyles({ overflow: "" });
 		box.removeEventListener("keydown", this.onKeyDown);
 		box.removeEventListener("focusout", this.onFocusOut);
 		box.removeEventListener("compositionstart", this.onCompositionStart);
 		box.removeEventListener("compositionend", this.onCompositionEnd);
 		this.options.onModeChange?.(false);
 		this.activeBox = null;
-		this.originalHtml = "";
+		this.originalNodes = [];
 		this.composing = false;
 		this.before = null;
 	}
@@ -230,9 +231,13 @@ export class EditController {
 /** The id of the shape a text box belongs to, read from its p:cNvPr. */
 function ownerShapeId(box: HTMLElement): string | null {
 	const sp = textBodyRegistry.get(box)?.source?.parentNode;
-	if (!(sp instanceof Element)) return null;
+	if (!sp?.instanceOf(Element)) return null;
 	for (const node of Array.from(sp.getElementsByTagName("*"))) {
 		if (node.localName === "cNvPr") return node.getAttribute("id");
 	}
 	return null;
+}
+
+function isHtmlElement(value: EventTarget | null): value is HTMLElement {
+	return (value as Node | null)?.instanceOf(HTMLElement) === true;
 }

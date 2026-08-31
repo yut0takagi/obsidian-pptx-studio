@@ -29,32 +29,62 @@ export function installDom(): void {
 		g[key] = key === "window" ? dom.window : win[key];
 	}
 
-	// Obsidian adds these to HTMLElement; the renderer uses them freely.
-	const proto = (dom.window as unknown as { HTMLElement: { prototype: HTMLElement } }).HTMLElement
-		.prototype as HTMLElement & Record<string, unknown>;
-	proto.addClass = function (this: HTMLElement, ...classes: string[]) {
+	g.createEl = (tag: string) => document.createElement(tag);
+	g.createDiv = () => document.createElement("div");
+	g.createSpan = () => document.createElement("span");
+
+	Object.defineProperty(dom.window.Object.prototype, "instanceOf", {
+		configurable: true,
+		value: function (this: unknown, type: unknown) {
+			return this instanceof (type as new (...args: never[]) => unknown);
+		},
+	});
+
+	// Obsidian adds these to elements; the renderer uses them freely.
+	const proto = (dom.window as unknown as { Element: { prototype: Element } }).Element
+		.prototype as Element & Record<string, unknown>;
+	proto.addClass = function (this: Element, ...classes: string[]) {
 		this.classList.add(...classes);
 		return this;
 	};
-	proto.removeClass = function (this: HTMLElement, ...classes: string[]) {
+	proto.removeClass = function (this: Element, ...classes: string[]) {
 		this.classList.remove(...classes);
 		return this;
 	};
-	proto.hasClass = function (this: HTMLElement, cls: string) {
+	proto.hasClass = function (this: Element, cls: string) {
 		return this.classList.contains(cls);
 	};
-	proto.toggleClass = function (this: HTMLElement, cls: string, value: boolean) {
+	proto.toggleClass = function (this: Element, cls: string, value: boolean) {
 		this.classList.toggle(cls, value);
 		return this;
 	};
-	proto.setText = function (this: HTMLElement, text: string) {
+	proto.setText = function (this: Element, text: string) {
 		this.textContent = text;
 	};
-	proto.empty = function (this: HTMLElement) {
+	proto.empty = function (this: Element) {
 		while (this.firstChild) this.removeChild(this.firstChild);
 	};
-	proto.detach = function (this: HTMLElement) {
+	proto.detach = function (this: Element) {
 		this.parentNode?.removeChild(this);
+	};
+	proto.setCssStyles = function (this: HTMLElement | SVGElement, styles: Record<string, string>) {
+		Object.assign(this.style, styles);
+	};
+
+	const htmlProto = (dom.window as unknown as { HTMLElement: { prototype: HTMLElement } })
+		.HTMLElement.prototype as HTMLElement & Record<string, unknown>;
+	htmlProto.createEl = function (this: HTMLElement, tag: string, options?: { cls?: string; text?: string }) {
+		const child = document.createElement(tag);
+		if (options?.cls) child.addClass(options.cls);
+		if (options?.text !== undefined) child.setText(options.text);
+		this.appendChild(child);
+		return child;
+	};
+	htmlProto.createDiv = function (this: HTMLElement, options?: { cls?: string; text?: string }) {
+		return this.createEl("div", options);
+	};
+	htmlProto.createSpan = function (this: HTMLElement, options?: { cls?: string; text?: string }) {
+		return this.createEl("span", options);
 	};
 
 	// Object URLs have no meaning outside a browser; the renderer only needs a string.

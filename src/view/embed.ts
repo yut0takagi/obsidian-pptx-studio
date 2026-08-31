@@ -53,9 +53,13 @@ class PptxEmbed extends MarkdownRenderChild {
 		super(containerEl);
 	}
 
-	async onload(): Promise<void> {
+	onload(): void {
+		void this.loadDeck();
+	}
+
+	private async loadDeck(): Promise<void> {
 		const settings = this.plugin.settings;
-		this.containerEl.style.height = `${settings.embedMaxHeight}px`;
+		this.containerEl.setCssStyles({ height: `${settings.embedMaxHeight}px` });
 		const loading = this.containerEl.createDiv({
 			cls: "pptx-message",
 			text: t("embed.loading", { name: this.file.name }),

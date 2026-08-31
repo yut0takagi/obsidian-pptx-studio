@@ -55,10 +55,10 @@ let editablePart: string | null = null;
  * transform, which keeps text crisp and makes zooming free.
  */
 export function renderSlide(deck: Deck, slide: Slide, options: RenderOptions = {}): HTMLElement {
-	const root = document.createElement("div");
+	const root = createDiv();
 	root.addClass("pptx-slide");
 	root.dataset.slideIndex = String(slide.index);
-	Object.assign(root.style, {
+	root.setCssStyles({
 		position: "relative",
 		width: `${deck.width}px`,
 		height: `${deck.height}px`,
@@ -66,7 +66,7 @@ export function renderSlide(deck: Deck, slide: Slide, options: RenderOptions = {
 		boxSizing: "border-box",
 		transformOrigin: "top left",
 	});
-	if (options.border) root.style.border = "1px solid rgba(0,0,0,0.12)";
+	if (options.border) root.setCssStyles({ border: "1px solid rgba(0,0,0,0.12)" });
 	applyFill(root, slide.background ?? { kind: "solid", color: "#ffffff" });
 
 	editablePart = slide.partPath;
@@ -109,9 +109,9 @@ function renderShape(shape: Shape): HTMLElement | null {
 
 /** Position an element at a frame, applying rotation and flips. */
 function positioned(frame: Frame, className: string): HTMLElement {
-	const el = document.createElement("div");
+	const el = createDiv();
 	el.addClass(className);
-	Object.assign(el.style, {
+	el.setCssStyles({
 		position: "absolute",
 		left: `${frame.x}px`,
 		top: `${frame.y}px`,
@@ -124,8 +124,7 @@ function positioned(frame: Frame, className: string): HTMLElement {
 	if (frame.flipH) transforms.push("scaleX(-1)");
 	if (frame.flipV) transforms.push("scaleY(-1)");
 	if (transforms.length) {
-		el.style.transform = transforms.join(" ");
-		el.style.transformOrigin = "center center";
+		el.setCssStyles({ transform: transforms.join(" "), transformOrigin: "center center" });
 	}
 	return el;
 }
@@ -134,22 +133,24 @@ function applyFill(el: HTMLElement, fill: Fill | null): void {
 	if (!fill) return;
 	switch (fill.kind) {
 		case "solid":
-			el.style.background = fill.color;
+			el.setCssStyles({ background: fill.color });
 			break;
 		case "gradient":
-			el.style.background = fill.css;
+			el.setCssStyles({ background: fill.css });
 			break;
 		case "image":
 			if (fill.url) {
 				if (fill.mediaPath) el.dataset.mediaPath = fill.mediaPath;
-				el.style.backgroundImage = `url("${fill.url}")`;
-				el.style.backgroundSize = "cover";
-				el.style.backgroundPosition = "center";
-				if (fill.opacity < 1) el.style.opacity = String(fill.opacity);
+				el.setCssStyles({
+					backgroundImage: `url("${fill.url}")`,
+					backgroundSize: "cover",
+					backgroundPosition: "center",
+				});
+				if (fill.opacity < 1) el.setCssStyles({ opacity: String(fill.opacity) });
 			}
 			break;
 		case "none":
-			el.style.background = "transparent";
+			el.setCssStyles({ background: "transparent" });
 			break;
 	}
 }
@@ -159,10 +160,10 @@ function applyStroke(el: HTMLElement, stroke: Stroke | null, clipped: boolean): 
 	if (clipped) {
 		// A CSS border would be clipped away with the corners, so approximate the
 		// outline with a drop-shadow that follows the clip path.
-		el.style.filter = `drop-shadow(0 0 ${stroke.width}px ${stroke.color})`;
+		el.setCssStyles({ filter: `drop-shadow(0 0 ${stroke.width}px ${stroke.color})` });
 		return;
 	}
-	el.style.border = `${stroke.width}px ${stroke.style} ${stroke.color}`;
+	el.setCssStyles({ border: `${stroke.width}px ${stroke.style} ${stroke.color}` });
 }
 
 // --------------------------------------------------------------- shapes
@@ -172,8 +173,8 @@ function renderTextShape(shape: TextShape): HTMLElement {
 	if (shape.placeholder) el.dataset.placeholder = shape.placeholder;
 
 	const geo = geometryCss(shape.geom, shape.frame.w, shape.frame.h);
-	if (geo.borderRadius) el.style.borderRadius = geo.borderRadius;
-	if (geo.clipPath) el.style.clipPath = geo.clipPath;
+	if (geo.borderRadius) el.setCssStyles({ borderRadius: geo.borderRadius });
+	if (geo.clipPath) el.setCssStyles({ clipPath: geo.clipPath });
 	applyFill(el, shape.fill);
 	applyStroke(el, shape.stroke, geo.clipped);
 
@@ -182,11 +183,11 @@ function renderTextShape(shape: TextShape): HTMLElement {
 }
 
 function renderTextBody(body: TextBody): HTMLElement {
-	const box = document.createElement("div");
+	const box = createDiv();
 	box.addClass("pptx-text");
 	textBodyRegistry.set(box, body);
 	if (body.source && body.sourcePart === editablePart) box.dataset.editable = "1";
-	Object.assign(box.style, {
+	box.setCssStyles({
 		position: "absolute",
 		inset: "0",
 		display: "flex",
@@ -204,10 +205,9 @@ function renderTextBody(body: TextBody): HTMLElement {
 	});
 
 	if (body.vertical === "vert") {
-		box.style.writingMode = "vertical-rl";
+		box.setCssStyles({ writingMode: "vertical-rl" });
 	} else if (body.vertical === "vert270") {
-		box.style.writingMode = "vertical-rl";
-		box.style.transform = "rotate(180deg)";
+		box.setCssStyles({ writingMode: "vertical-rl", transform: "rotate(180deg)" });
 	}
 
 	for (const para of body.paragraphs) {
@@ -218,9 +218,9 @@ function renderTextBody(body: TextBody): HTMLElement {
 
 function renderParagraph(para: Paragraph, body: TextBody): HTMLElement {
 	const scale = body.fontScale;
-	const el = document.createElement("div");
+	const el = createDiv();
 	el.addClass("pptx-para");
-	Object.assign(el.style, {
+	el.setCssStyles({
 		textAlign: para.align,
 		marginTop: `${para.spaceBefore * scale}px`,
 		marginBottom: `${para.spaceAfter * scale}px`,
@@ -229,17 +229,19 @@ function renderParagraph(para: Paragraph, body: TextBody): HTMLElement {
 
 	const spacing = para.lineSpacing;
 	if (spacing !== null) {
-		el.style.lineHeight =
-			spacing < 0
-				? `${-spacing * scale}px`
-				: String(Math.max(0.5, spacing - body.lineSpaceReduction));
+		el.setCssStyles({
+			lineHeight:
+				spacing < 0
+					? `${-spacing * scale}px`
+					: String(Math.max(0.5, spacing - body.lineSpaceReduction)),
+		});
 	} else {
-		el.style.lineHeight = String(Math.max(0.5, 1.2 - body.lineSpaceReduction));
+		el.setCssStyles({ lineHeight: String(Math.max(0.5, 1.2 - body.lineSpaceReduction)) });
 	}
 
 	paragraphRegistry.set(el, para);
 
-	const runsEl = document.createElement("div");
+	const runsEl = createDiv();
 	runsEl.addClass("pptx-runs");
 	para.runs.forEach((run, i) => {
 		runsEl.appendChild(renderRun(run, scale, i));
@@ -251,29 +253,28 @@ function renderParagraph(para: Paragraph, body: TextBody): HTMLElement {
 	}
 
 	// Hanging indent: the bullet occupies the negative indent to the left of the text.
-	const row = document.createElement("div");
-	Object.assign(row.style, {
+	const row = createDiv();
+	row.setCssStyles({
 		display: "flex",
 		alignItems: "baseline",
 		gap: "0",
 	});
-	const marker = document.createElement("span");
+	const marker = createSpan();
 	marker.addClass("pptx-bullet");
 	// The glyph is generated from the list style, not typed, so keep it out of
 	// the editable flow: the caret should never land inside a bullet.
 	marker.contentEditable = "false";
-	marker.style.userSelect = "none";
+	marker.setCssStyles({ userSelect: "none" });
 	const firstSize = (para.runs[0]?.size ?? 18) * scale;
-	Object.assign(marker.style, {
+	marker.setCssStyles({
 		flex: "0 0 auto",
 		minWidth: `${Math.max(Math.abs(para.indent), firstSize * 0.9)}px`,
 		color: para.bullet.color ?? para.runs[0]?.color ?? "inherit",
 		fontSize: `${firstSize * para.bullet.scale}px`,
 	});
-	if (para.bullet.font) marker.style.fontFamily = `"${para.bullet.font}", ${FONT_FALLBACK}`;
+	if (para.bullet.font) marker.setCssStyles({ fontFamily: `"${para.bullet.font}", ${FONT_FALLBACK}` });
 	marker.setText(para.bullet.text);
-	runsEl.style.flex = "1 1 auto";
-	runsEl.style.minWidth = "0";
+	runsEl.setCssStyles({ flex: "1 1 auto", minWidth: "0" });
 	row.appendChild(marker);
 	row.appendChild(runsEl);
 	el.appendChild(row);
@@ -281,15 +282,15 @@ function renderParagraph(para: Paragraph, body: TextBody): HTMLElement {
 }
 
 function renderRun(run: Run, scale: number, index: number): HTMLElement {
-	const el = document.createElement(run.link ? "a" : "span");
+	const el = createEl(run.link ? "a" : "span");
 	el.dataset.run = String(index);
 	runRegistry.set(el, run);
-	if (run.link && el instanceof HTMLAnchorElement) {
+	if (run.link && el.instanceOf(HTMLAnchorElement)) {
 		el.href = run.link;
 		el.target = "_blank";
 		el.rel = "noopener";
 	}
-	Object.assign(el.style, {
+	el.setCssStyles({
 		fontSize: `${run.size * scale}px`,
 		fontWeight: run.bold ? "700" : "400",
 		fontStyle: run.italic ? "italic" : "normal",
@@ -299,27 +300,27 @@ function renderRun(run: Run, scale: number, index: number): HTMLElement {
 	const decorations: string[] = [];
 	if (run.underline) decorations.push("underline");
 	if (run.strike) decorations.push("line-through");
-	el.style.textDecoration = decorations.length ? decorations.join(" ") : "none";
-	if (run.spacing) el.style.letterSpacing = `${run.spacing * scale}px`;
-	if (run.highlight) el.style.background = run.highlight;
-	if (run.baseline > 0) el.style.verticalAlign = "super";
-	if (run.baseline < 0) el.style.verticalAlign = "sub";
-	if (run.baseline !== 0) el.style.fontSize = `${run.size * scale * 0.65}px`;
+	el.setCssStyles({ textDecoration: decorations.length ? decorations.join(" ") : "none" });
+	if (run.spacing) el.setCssStyles({ letterSpacing: `${run.spacing * scale}px` });
+	if (run.highlight) el.setCssStyles({ background: run.highlight });
+	if (run.baseline > 0) el.setCssStyles({ verticalAlign: "super" });
+	if (run.baseline < 0) el.setCssStyles({ verticalAlign: "sub" });
+	if (run.baseline !== 0) el.setCssStyles({ fontSize: `${run.size * scale * 0.65}px` });
 	el.textContent = run.text;
 	return el;
 }
 
 function renderImage(shape: ImageShape): HTMLElement {
 	const el = positioned(shape.frame, "pptx-image");
-	el.style.overflow = "hidden";
+	el.setCssStyles({ overflow: "hidden" });
 	const geo = geometryCss(shape.geom, shape.frame.w, shape.frame.h);
-	if (geo.borderRadius) el.style.borderRadius = geo.borderRadius;
-	if (geo.clipPath) el.style.clipPath = geo.clipPath;
+	if (geo.borderRadius) el.setCssStyles({ borderRadius: geo.borderRadius });
+	if (geo.clipPath) el.setCssStyles({ clipPath: geo.clipPath });
 	applyStroke(el, shape.stroke, geo.clipped);
 
 	if (!shape.url) {
 		// EMF/WMF and friends: show a labelled placeholder rather than a blank hole.
-		Object.assign(el.style, {
+		el.setCssStyles({
 			display: "flex",
 			alignItems: "center",
 			justifyContent: "center",
@@ -334,7 +335,7 @@ function renderImage(shape: ImageShape): HTMLElement {
 		return el;
 	}
 
-	const img = document.createElement("img");
+	const img = createEl("img");
 	img.src = shape.url;
 	img.alt = shape.label;
 	if (shape.mediaPath) img.dataset.mediaPath = shape.mediaPath;
@@ -343,7 +344,7 @@ function renderImage(shape: ImageShape): HTMLElement {
 		const { l, t, r, b } = shape.crop;
 		const wFactor = 1 - l - r;
 		const hFactor = 1 - t - b;
-		Object.assign(img.style, {
+		img.setCssStyles({
 			position: "absolute",
 			width: `${100 / Math.max(wFactor, 0.001)}%`,
 			height: `${100 / Math.max(hFactor, 0.001)}%`,
@@ -352,7 +353,7 @@ function renderImage(shape: ImageShape): HTMLElement {
 			objectFit: "fill",
 		});
 	} else {
-		Object.assign(img.style, { width: "100%", height: "100%", objectFit: "fill" });
+		img.setCssStyles({ width: "100%", height: "100%", objectFit: "fill" });
 	}
 	el.appendChild(img);
 	return el;
@@ -360,35 +361,35 @@ function renderImage(shape: ImageShape): HTMLElement {
 
 function renderTable(shape: TableShape): HTMLElement {
 	const el = positioned(shape.frame, "pptx-table");
-	const table = document.createElement("table");
-	Object.assign(table.style, {
+	const table = createEl("table");
+	table.setCssStyles({
 		width: "100%",
 		height: "100%",
 		borderCollapse: "collapse",
 		tableLayout: "fixed",
 	});
 
-	const colgroup = document.createElement("colgroup");
+	const colgroup = createEl("colgroup");
 	for (const w of shape.table.columns) {
-		const col = document.createElement("col");
-		col.style.width = `${w}px`;
+		const col = createEl("col");
+		col.setCssStyles({ width: `${w}px` });
 		colgroup.appendChild(col);
 	}
 	table.appendChild(colgroup);
 
-	const tbody = document.createElement("tbody");
+	const tbody = createEl("tbody");
 	shape.table.rows.forEach((row, rowIndex) => {
-		const tr = document.createElement("tr");
-		if (row.height) tr.style.height = `${row.height}px`;
+		const tr = createEl("tr");
+		if (row.height) tr.setCssStyles({ height: `${row.height}px` });
 		row.cells.forEach((cell, colIndex) => {
 			if (cell.merged) return;
-			const td = document.createElement("td");
+			const td = createEl("td");
 			// Grid coordinates, so a click can be turned back into a cell.
 			td.dataset.cellRow = String(rowIndex);
 			td.dataset.cellCol = String(colIndex);
 			if (cell.colSpan > 1) td.colSpan = cell.colSpan;
 			if (cell.rowSpan > 1) td.rowSpan = cell.rowSpan;
-			Object.assign(td.style, {
+			td.setCssStyles({
 				verticalAlign:
 					cell.anchor === "middle" ? "middle" : cell.anchor === "bottom" ? "bottom" : "top",
 				padding: `${cell.margins[1]}px ${cell.margins[2]}px ${cell.margins[3]}px ${cell.margins[0]}px`,
@@ -402,16 +403,15 @@ function renderTable(shape: TableShape): HTMLElement {
 				["Bottom", cell.borders.bottom],
 			] as const) {
 				if (stroke) {
-					td.style.setProperty(
-						`border-${side.toLowerCase()}`,
-						`${stroke.width}px ${stroke.style} ${stroke.color}`,
-					);
+					td.setCssStyles({
+						[`border${side}`]: `${stroke.width}px ${stroke.style} ${stroke.color}`,
+					});
 				}
 			}
 			if (cell.text) {
 				const body = renderTextBody(cell.text);
 				// Inside a table cell the text flows normally rather than filling a box.
-				Object.assign(body.style, { position: "static", inset: "auto", padding: "0" });
+				body.setCssStyles({ position: "static", inset: "auto", padding: "0" });
 				td.appendChild(body);
 			}
 			tr.appendChild(td);
@@ -425,17 +425,17 @@ function renderTable(shape: TableShape): HTMLElement {
 
 function renderChartShape(shape: ChartShape): HTMLElement {
 	const el = positioned(shape.frame, "pptx-chart");
-	el.style.overflow = "hidden";
+	el.setCssStyles({ overflow: "hidden" });
 	el.appendChild(renderChart(shape));
 	return el;
 }
 
 function renderGroup(shape: GroupShape): HTMLElement {
 	const el = positioned(shape.frame, "pptx-group");
-	const inner = document.createElement("div");
+	const inner = createDiv();
 	const sx = shape.childOffset.w > 0 ? shape.frame.w / shape.childOffset.w : 1;
 	const sy = shape.childOffset.h > 0 ? shape.frame.h / shape.childOffset.h : 1;
-	Object.assign(inner.style, {
+	inner.setCssStyles({
 		position: "absolute",
 		left: "0",
 		top: "0",
@@ -462,7 +462,7 @@ function renderLine(shape: LineShape): HTMLElement {
 	svg.setAttribute("height", "100%");
 	svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
 	svg.setAttribute("preserveAspectRatio", "none");
-	svg.style.overflow = "visible";
+	svg.setCssStyles({ overflow: "visible" });
 
 	const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
 	line.setAttribute("x1", "0");

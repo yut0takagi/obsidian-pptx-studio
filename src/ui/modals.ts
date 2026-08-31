@@ -75,7 +75,6 @@ export class TableSizeModal extends Modal {
 			slider
 				.setLimits(1, 12, 1)
 				.setValue(this.rows)
-				.setDynamicTooltip()
 				.onChange((value) => {
 					this.rows = value;
 				}),
@@ -84,7 +83,6 @@ export class TableSizeModal extends Modal {
 			slider
 				.setLimits(1, 10, 1)
 				.setValue(this.columns)
-				.setDynamicTooltip()
 				.onChange((value) => {
 					this.columns = value;
 				}),
@@ -130,9 +128,9 @@ export class PromptModal extends Modal {
 					this.value = value;
 				}),
 		);
-		const input = setting.controlEl.querySelector("input");
+		const input = setting.controlEl.querySelector<HTMLInputElement>("input");
 		input?.addEventListener("keydown", (event) => {
-			if ((event as KeyboardEvent).key === "Enter") this.submit();
+			if (event.key === "Enter") this.submit();
 		});
 		window.setTimeout(() => input?.focus(), 0);
 

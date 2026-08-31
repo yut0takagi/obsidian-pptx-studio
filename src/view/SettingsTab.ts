@@ -75,7 +75,6 @@ export class PptxSettingsTab extends PluginSettingTab {
 				slider
 					.setLimits(200, 900, 20)
 					.setValue(this.plugin.settings.embedMaxHeight)
-					.setDynamicTooltip()
 					.onChange(async (value) => {
 						this.plugin.settings.embedMaxHeight = value;
 						await this.plugin.saveSettings();

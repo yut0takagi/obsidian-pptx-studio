@@ -308,7 +308,7 @@ export class Ribbon {
 				});
 				this.refreshers.push(() => {
 					const value = item.value();
-					swatch.style.background = value ?? "transparent";
+					swatch.setCssStyles({ background: value ?? "transparent" });
 					swatch.toggleClass("is-none", value === null);
 					el.toggleClass("is-disabled", item.isEnabled ? !item.isEnabled() : false);
 				});

@@ -109,7 +109,7 @@ export class SelectionPane {
 	}
 
 	private startRename(label: HTMLElement, shape: Shape): void {
-		const input = document.createElement("input");
+		const input = createEl("input");
 		input.type = "text";
 		input.value = shape.name;
 		input.addClass("pptx-pane-rename");

@@ -371,7 +371,7 @@ export class PptxView extends FileView {
 		list.toggleClass("is-flexible", !bothOpen && !settings.shapeListCollapsed);
 		this.sideSplitter?.setEnabled(bothOpen);
 		if (bothOpen) this.sideSplitter?.setHeight(settings.shapeListHeight);
-		else list.style.height = "";
+		else list.setCssStyles({ height: "" });
 	}
 
 	/** Rebuild the model and repaint after an edit. */

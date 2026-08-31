@@ -208,7 +208,7 @@ function readNumbers(container: Element | null): (number | null)[] {
 	const cache = child(child(container, "numRef"), "numCache") ?? child(container, "numLit");
 	if (!cache) return [];
 	const count = numAttr(child(cache, "ptCount"), "val");
-	const out: (number | null)[] = new Array(count ?? 0).fill(null);
+	const out: (number | null)[] = Array.from({ length: count ?? 0 }, () => null);
 	for (const pt of children(cache, "pt")) {
 		const index = numAttr(pt, "idx") ?? 0;
 		const raw = child(pt, "v")?.textContent?.trim();

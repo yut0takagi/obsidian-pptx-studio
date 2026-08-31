@@ -42,11 +42,11 @@ export class History {
 	}
 
 	get undoLabel(): string | null {
-		return this.past.at(-1)?.label ?? null;
+		return this.past[this.past.length - 1]?.label ?? null;
 	}
 
 	get redoLabel(): string | null {
-		return this.future.at(-1)?.label ?? null;
+		return this.future[this.future.length - 1]?.label ?? null;
 	}
 
 	undo(pkg: PptxPackage): HistoryEntry | null {
