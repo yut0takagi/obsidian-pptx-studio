@@ -133,8 +133,9 @@ export class CropController {
 	tryGrab(event: PointerEvent): boolean {
 		if (!this.session) return false;
 		const target = event.target;
-		const handle =
-			target instanceof HTMLElement ? target.closest<HTMLElement>("[data-crop-handle]") : null;
+		const handle = isHtmlElement(target)
+			? target.closest<HTMLElement>("[data-crop-handle]")
+			: null;
 		if (!handle) return false;
 		this.drag = {
 			pointerId: event.pointerId,
@@ -328,6 +329,10 @@ function clamp(value: number, min: number, max: number): number {
 /** Exposed so the shape editor can leave cropping alone while it is on. */
 export function isCropTarget(el: HTMLElement): boolean {
 	return el.closest("[data-crop-handle]") !== null;
+}
+
+function isHtmlElement(value: EventTarget | null): value is HTMLElement {
+	return (value as Node | null)?.instanceOf(HTMLElement) === true;
 }
 
 export { shapeRegistry };

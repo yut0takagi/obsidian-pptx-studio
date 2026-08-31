@@ -2,7 +2,7 @@
   "id": "pptx-studio",
   "name": "PPTX Studio",
   "version": "0.1.0",
-  "minAppVersion": "1.4.0",
+  "minAppVersion": "1.7.2",
   "description": "Open, edit and inspect PowerPoint (.pptx) decks natively in Obsidian: a PowerPoint-style editing surface, an OOXML property inspector, slide embeds, Markdown extraction and PNG export.",
   "author": "yut0takagi",
   "authorUrl": "https://github.com/yut0takagi",

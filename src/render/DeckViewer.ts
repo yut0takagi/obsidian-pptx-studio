@@ -138,7 +138,9 @@ export class DeckViewer {
 			// convention everywhere else that has one.
 			this.sideResizerEl.addEventListener("dblclick", () => this.setSideWidth(SIDE_DEFAULT));
 			this.sidePaneEl = body.createDiv({ cls: "pptx-side" });
-			this.sidePaneEl.style.flexBasis = `${clampSideWidth(this.options.sidePaneWidth ?? SIDE_DEFAULT)}px`;
+			this.sidePaneEl.setCssStyles({
+				flexBasis: `${clampSideWidth(this.options.sidePaneWidth ?? SIDE_DEFAULT)}px`,
+			});
 		}
 
 		if (!this.options.compact) {
@@ -393,11 +395,10 @@ export class DeckViewer {
 
 		const width = frame.clientWidth || 160;
 		const scale = width / this.deck.width;
-		frame.style.height = `${this.deck.height * scale}px`;
+		frame.setCssStyles({ height: `${this.deck.height * scale}px` });
 
 		const el = renderSlide(this.deck, slide);
-		el.style.transform = `scale(${scale})`;
-		el.style.pointerEvents = "none";
+		el.setCssStyles({ transform: `scale(${scale})`, pointerEvents: "none" });
 		frame.appendChild(el);
 	}
 
@@ -483,9 +484,11 @@ export class DeckViewer {
 		}
 		scale = Math.max(0.05, scale);
 
-		el.style.transform = `scale(${scale})`;
-		this.canvasEl.style.width = `${this.deck.width * scale}px`;
-		this.canvasEl.style.height = `${this.deck.height * scale}px`;
+		el.setCssStyles({ transform: `scale(${scale})` });
+		this.canvasEl.setCssStyles({
+			width: `${this.deck.width * scale}px`,
+			height: `${this.deck.height * scale}px`,
+		});
 		this.zoomLabelEl?.setText(`${Math.round(scale * 100)}%`);
 		this.lastScale = scale;
 		this.options.shapeEditor?.refresh();
@@ -523,7 +526,7 @@ export class DeckViewer {
 	private setSideWidth(width: number): void {
 		if (!this.sidePaneEl) return;
 		const clamped = clampSideWidth(width);
-		this.sidePaneEl.style.flexBasis = `${clamped}px`;
+		this.sidePaneEl.setCssStyles({ flexBasis: `${clamped}px` });
 		this.applyScale();
 		this.options.onViewportChanged?.();
 	}

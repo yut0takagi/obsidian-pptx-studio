@@ -29,7 +29,7 @@ export async function renderSlideToPng(
 		`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
 	);
 
-	const canvas = document.createElement("canvas");
+	const canvas = createEl("canvas");
 	canvas.width = Math.round(deck.width * scale);
 	canvas.height = Math.round(deck.height * scale);
 	const ctx = canvas.getContext("2d");
@@ -52,10 +52,10 @@ function inlineMedia(root: HTMLElement, pkg: PptxPackage): void {
 		if (!path) continue;
 		const dataUrl = pkg.mediaDataUrl(path);
 		if (!dataUrl) continue;
-		if (el instanceof HTMLImageElement) {
+		if (el.instanceOf(HTMLImageElement)) {
 			el.src = dataUrl;
 		} else {
-			el.style.backgroundImage = `url("${dataUrl}")`;
+			el.setCssStyles({ backgroundImage: `url("${dataUrl}")` });
 		}
 	}
 }

@@ -273,7 +273,7 @@ export class ContextToolbar {
 			});
 		});
 		const swatch = el.createDiv({ cls: "pptx-ctx-swatch" });
-		swatch.style.background = value() ?? "transparent";
+		swatch.setCssStyles({ background: value() ?? "transparent" });
 		swatch.toggleClass("is-none", value() === null);
 	}
 
@@ -328,8 +328,7 @@ export class ContextToolbar {
 		// A selection scrolled out of the stage should not leave the bar hanging.
 		const visible = below > view.top - 40 && above < view.bottom + 40;
 		this.root.toggleClass("is-hidden", !visible);
-		this.root.style.left = `${Math.round(x)}px`;
-		this.root.style.top = `${Math.round(y)}px`;
+		this.root.setCssStyles({ left: `${Math.round(x)}px`, top: `${Math.round(y)}px` });
 	}
 
 	destroy(): void {

@@ -29,7 +29,7 @@ export function currentTextSelection(): TextSelection | null {
 	const range = selection.getRangeAt(0);
 
 	const container =
-		range.commonAncestorContainer instanceof HTMLElement
+		range.commonAncestorContainer.instanceOf(HTMLElement)
 			? range.commonAncestorContainer
 			: range.commonAncestorContainer.parentElement;
 	const box = container?.closest<HTMLElement>('[data-editable="1"]') ?? null;
@@ -73,7 +73,7 @@ export function caretParagraphIndex(box: HTMLElement): number | null {
 	const selection = window.getSelection();
 	if (!selection || selection.rangeCount === 0) return null;
 	const node = selection.getRangeAt(0).startContainer;
-	const el = node instanceof HTMLElement ? node : node.parentElement;
+	const el = node.instanceOf(HTMLElement) ? node : node.parentElement;
 	const para = el?.closest<HTMLElement>(".pptx-para");
 	if (!para || !box.contains(para)) return null;
 	const all = Array.from(box.querySelectorAll<HTMLElement>(".pptx-para"));

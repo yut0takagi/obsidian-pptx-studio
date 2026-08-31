@@ -19,9 +19,9 @@ export class CaretPainter {
 	start(box: HTMLElement): void {
 		this.stop();
 		this.box = box;
-		box.style.caretColor = "transparent";
+		box.setCssStyles({ caretColor: "transparent" });
 
-		const el = document.createElement("div");
+		const el = createDiv();
 		el.className = "pptx-caret";
 		document.body.appendChild(el);
 		this.el = el;
@@ -41,7 +41,7 @@ export class CaretPainter {
 		window.removeEventListener("scroll", this.schedule, true);
 		window.removeEventListener("resize", this.schedule);
 		this.box?.removeEventListener("input", this.schedule);
-		if (this.box) this.box.style.caretColor = "";
+		if (this.box) this.box.setCssStyles({ caretColor: "" });
 		this.box = null;
 		this.el?.remove();
 		this.el = null;
@@ -61,10 +61,10 @@ export class CaretPainter {
 		if (!el || !box) return;
 		const rect = this.caretRect(box);
 		if (!rect) {
-			el.style.display = "none";
+			el.setCssStyles({ display: "none" });
 			return;
 		}
-		Object.assign(el.style, {
+		el.setCssStyles({
 			display: "block",
 			left: `${rect.left}px`,
 			top: `${rect.top}px`,
@@ -72,9 +72,9 @@ export class CaretPainter {
 		});
 		// Restart the blink, so the caret is solid the instant it moves rather
 		// than invisible for the rest of the off half of the cycle.
-		el.style.animation = "none";
+		el.setCssStyles({ animation: "none" });
 		void el.offsetWidth;
-		el.style.animation = "";
+		el.setCssStyles({ animation: "" });
 	}
 
 	private caretRect(box: HTMLElement): { left: number; top: number; height: number } | null {
@@ -92,7 +92,7 @@ export class CaretPainter {
 		// An empty paragraph has no rect of its own, so the caret goes where the
 		// first character would land: the line's own box, read the way it aligns.
 		const node = range.startContainer;
-		const host = node instanceof Element ? node : node.parentElement;
+		const host = node.instanceOf(Element) ? node : node.parentElement;
 		const line = host?.getBoundingClientRect();
 		if (!host || !line || line.height === 0) return null;
 		const align = window.getComputedStyle(host).textAlign;

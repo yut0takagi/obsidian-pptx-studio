@@ -71,7 +71,8 @@ export default class PptxStudioPlugin extends Plugin {
 						.get(file)
 						.then((loaded) => this.extractMarkdown(loaded, file))
 						.catch(
-							(error) => new Notice(t("notice.readFailed", { message: error.message })),
+							(error: unknown) =>
+								new Notice(t("notice.readFailed", { message: errorMessage(error) })),
 						);
 				}
 				return true;
@@ -221,7 +222,8 @@ export default class PptxStudioPlugin extends Plugin {
 	// ------------------------------------------------------------ settings
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const data: unknown = await this.loadData();
+		this.settings = { ...DEFAULT_SETTINGS, ...(isSettingsPatch(data) ? data : {}) };
 	}
 
 	async saveSettings(): Promise<void> {
@@ -239,4 +241,12 @@ export default class PptxStudioPlugin extends Plugin {
 			if (view instanceof PptxView && view.file) void view.onLoadFile(view.file);
 		}
 	}
+}
+
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+function isSettingsPatch(value: unknown): value is Partial<PptxStudioSettings> {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
 }

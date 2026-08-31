@@ -47,7 +47,7 @@ export class PaneSplitter {
 		const room = container ? container.getBoundingClientRect().height : 0;
 		const max = room > 0 ? Math.max(MIN, room - KEEP_BELOW) : Number.MAX_SAFE_INTEGER;
 		const clamped = Math.round(Math.max(MIN, Math.min(max, height)));
-		this.options.above.style.height = `${clamped}px`;
+		this.options.above.setCssStyles({ height: `${clamped}px` });
 		this.options.onHeight(clamped);
 	}
 

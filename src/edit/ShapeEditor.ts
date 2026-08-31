@@ -149,7 +149,7 @@ export class ShapeEditor {
 		// the slide belongs to whatever it landed on.
 		if (
 			target !== event.currentTarget &&
-			!(target instanceof HTMLElement && target.classList.contains("pptx-canvas"))
+			!(isHtmlElement(target) && target.classList.contains("pptx-canvas"))
 		) {
 			return;
 		}
@@ -349,7 +349,7 @@ export class ShapeEditor {
 	private onContextMenu = (event: MouseEvent): void => {
 		if (!this.options.isEnabled()) return;
 		const target = event.target;
-		if (target instanceof HTMLElement) {
+		if (isHtmlElement(target)) {
 			const shapeEl = target.closest<HTMLElement>("[data-shape-id]");
 			const id = shapeEl?.dataset.shapeId;
 			if (id && !this.options.selection.has(id)) {
@@ -381,7 +381,7 @@ export class ShapeEditor {
 	private onPointerDown = (event: PointerEvent): void => {
 		if (event.button !== 0) return;
 		const target = event.target;
-		if (!(target instanceof HTMLElement)) return;
+		if (!isHtmlElement(target)) return;
 		this.slideEl = event.currentTarget as HTMLElement;
 
 		// What was pressed is read before anything else happens: leaving a text
@@ -765,12 +765,11 @@ export class ShapeEditor {
 			if (event.shiftKey) rotation = Math.round(rotation / ROTATE_SNAP) * ROTATE_SNAP;
 			rotation = ((rotation % 360) + 360) % 360;
 			drag.rotations.set(item.shape.id, rotation);
-			item.el.style.transform = `rotate(${rotation}deg)`;
-			item.el.style.transformOrigin = "center center";
+			item.el.setCssStyles({ transform: `rotate(${rotation}deg)`, transformOrigin: "center center" });
 		}
 		const box = this.overlay?.querySelector<HTMLElement>(".pptx-selection:not(.is-member)");
 		const rotation = drag.rotations.get(drag.items[0].shape.id) ?? 0;
-		if (box) box.style.transform = `rotate(${rotation}deg)`;
+		if (box) box.setCssStyles({ transform: `rotate(${rotation}deg)` });
 	}
 
 	// ------------------------------------------------------------ marquee
@@ -903,13 +902,15 @@ export class ShapeEditor {
 		for (const handle of HANDLES) {
 			const el = box.querySelector<HTMLElement>(`[data-handle="${handle.id}"]`);
 			if (!el) continue;
-			el.style.left = `${bounds.w * handle.fx - size / 2}px`;
-			el.style.top = `${bounds.h * handle.fy - size / 2}px`;
+			el.setCssStyles({
+				left: `${bounds.w * handle.fx - size / 2}px`,
+				top: `${bounds.h * handle.fy - size / 2}px`,
+			});
 		}
 		const knob = box.querySelector<HTMLElement>("[data-rotate]");
-		if (knob) knob.style.left = `${bounds.w / 2 - size / 2}px`;
+		if (knob) knob.setCssStyles({ left: `${bounds.w / 2 - size / 2}px` });
 		const stem = box.querySelector<HTMLElement>(".pptx-rotate-stem");
-		if (stem) stem.style.left = `${bounds.w / 2 - 0.75 / scale}px`;
+		if (stem) stem.setCssStyles({ left: `${bounds.w / 2 - 0.75 / scale}px` });
 	}
 
 	// ----------------------------------------------------------- keyboard
@@ -1007,10 +1008,12 @@ export class ShapeEditor {
 // ------------------------------------------------------------- helpers
 
 function place(el: HTMLElement, frame: Frame): void {
-	el.style.left = `${frame.x}px`;
-	el.style.top = `${frame.y}px`;
-	el.style.width = `${frame.w}px`;
-	el.style.height = `${frame.h}px`;
+	el.setCssStyles({
+		left: `${frame.x}px`,
+		top: `${frame.y}px`,
+		width: `${frame.w}px`,
+		height: `${frame.h}px`,
+	});
 }
 
 /** Resize a rotated shape along its own axes, holding the anchor corner still. */
@@ -1057,10 +1060,12 @@ function applyLive(el: HTMLElement, shape: Shape, frame: Frame): void {
 	place(el, frame);
 	if (shape.kind === "group") {
 		const inner = el.firstElementChild;
-		if (inner instanceof HTMLElement) {
+		if (inner?.instanceOf(HTMLElement)) {
 			const sx = shape.childOffset.w > 0 ? frame.w / shape.childOffset.w : 1;
 			const sy = shape.childOffset.h > 0 ? frame.h / shape.childOffset.h : 1;
-			inner.style.transform = `scale(${sx}, ${sy}) translate(${-shape.childOffset.x}px, ${-shape.childOffset.y}px)`;
+			inner.setCssStyles({
+				transform: `scale(${sx}, ${sy}) translate(${-shape.childOffset.x}px, ${-shape.childOffset.y}px)`,
+			});
 		}
 	}
 }
@@ -1108,6 +1113,10 @@ function bestSnap(
 		}
 	}
 	return best;
+}
+
+function isHtmlElement(value: EventTarget | null): value is HTMLElement {
+	return (value as Node | null)?.instanceOf(HTMLElement) === true;
 }
 
 /** Exported for the ribbon, which needs to know whether commands apply. */

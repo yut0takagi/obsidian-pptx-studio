@@ -155,10 +155,10 @@ function collapseToSingleRun(paraEl: Element, text: string): void {
 function collectParagraphs(boxEl: HTMLElement): EditedParagraph[] {
 	const out: EditedParagraph[] = [];
 	for (const block of Array.from(boxEl.children)) {
-		if (!(block instanceof HTMLElement)) continue;
+		if (!block.instanceOf(HTMLElement)) continue;
 		// contenteditable sometimes nests new blocks inside an existing paragraph.
 		const nested = Array.from(block.children).filter(
-			(el): el is HTMLElement => el instanceof HTMLElement && paragraphRegistry.has(el),
+			(el): el is HTMLElement => el.instanceOf(HTMLElement) && paragraphRegistry.has(el),
 		);
 		if (nested.length > 0 && !paragraphRegistry.has(block)) {
 			for (const el of nested) out.push(readParagraph(el));
@@ -190,7 +190,7 @@ function visibleText(root: Node): string {
 			out += node.nodeValue ?? "";
 			return;
 		}
-		if (node instanceof HTMLElement) {
+		if (node.instanceOf(HTMLElement)) {
 			if (node.hasClass("pptx-bullet")) return;
 			if (node.tagName === "BR") {
 				out += "\n";

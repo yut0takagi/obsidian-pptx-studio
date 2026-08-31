@@ -25,7 +25,7 @@ export function renderChart(shape: ChartShape): SVGElement {
 	svg.setAttribute("width", "100%");
 	svg.setAttribute("height", "100%");
 	svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-	svg.style.overflow = "visible";
+	svg.setCssStyles({ overflow: "visible" });
 
 	const font = clamp(Math.min(width, height) / 24, 8, 15);
 	const layout = layoutRegions(chart, width, height, font);

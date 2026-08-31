@@ -1,3 +1,5 @@
+import { getLanguage } from "obsidian";
+
 /**
  * Interface strings.
  *
@@ -596,9 +598,7 @@ let active: Language = "en";
 /** Resolve the setting to a concrete language, following Obsidian when asked. */
 export function resolveLanguage(setting: LanguageSetting): Language {
 	if (setting !== "auto") return setting;
-	// Obsidian records the display language here; anything unknown falls back.
-	const stored = window.localStorage.getItem("language") ?? "";
-	return stored.startsWith("ja") ? "ja" : "en";
+	return getLanguage().startsWith("ja") ? "ja" : "en";
 }
 
 export function setLanguage(setting: LanguageSetting): void {
