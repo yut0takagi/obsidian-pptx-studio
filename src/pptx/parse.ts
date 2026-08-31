@@ -167,11 +167,11 @@ function buildSlide(
 	const templateShapes = shapes.length;
 	shapes.push(...parseShapeTree(slideTree, slideCtx, inherit));
 
-	const background =
+	const background: Fill =
 		parseBackground(child(child(slideRoot, "cSld"), "bg"), slideCtx) ??
 		parseBackground(child(child(layoutRoot, "cSld"), "bg"), layoutCtx) ??
 		parseBackground(child(child(masterRoot, "cSld"), "bg"), masterCtx) ??
-		({ kind: "solid", color: "#ffffff" } as Fill);
+		{ kind: "solid", color: "#ffffff" };
 
 	return {
 		index,

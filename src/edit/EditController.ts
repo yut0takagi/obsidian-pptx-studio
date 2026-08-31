@@ -92,8 +92,8 @@ export class EditController {
 		if (!this.options.isEnabled() || box === this.activeBox) return;
 		this.commit();
 		this.begin(box, null);
-		this.selectAllText(box, false);
-		document.execCommand("insertText", false, initial);
+		box.textContent = initial;
+		this.selectAllText(box, true);
 	}
 
 	private selectAllText(box: HTMLElement, collapseToEnd: boolean): void {
@@ -131,9 +131,11 @@ export class EditController {
 	/** Put the caret where the user double-clicked rather than at the start. */
 	private placeCaret(event: MouseEvent): void {
 		const doc = document as Document & {
-			caretRangeFromPoint?: (x: number, y: number) => Range | null;
+			caretPositionFromPoint?: (x: number, y: number) => BrowserCaretPosition | null;
 		};
-		const range = doc.caretRangeFromPoint?.(event.clientX, event.clientY);
+		const range = rangeFromCaretPosition(
+			doc.caretPositionFromPoint?.(event.clientX, event.clientY),
+		);
 		if (!range) return;
 		const selection = window.getSelection();
 		if (!selection) return;
@@ -226,6 +228,19 @@ export class EditController {
 		this.composing = false;
 		this.before = null;
 	}
+}
+
+type BrowserCaretPosition = {
+	offsetNode: Node;
+	offset: number;
+};
+
+function rangeFromCaretPosition(position: BrowserCaretPosition | null | undefined): Range | null {
+	if (!position) return null;
+	const range = document.createRange();
+	range.setStart(position.offsetNode, position.offset);
+	range.collapse(true);
+	return range;
 }
 
 /** The id of the shape a text box belongs to, read from its p:cNvPr. */
