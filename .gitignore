@@ -1,6 +1,7 @@
 node_modules/
 main.js
 scripts/smoke.cjs
+tests/.build/
 *.js.map
 .DS_Store
 data.json

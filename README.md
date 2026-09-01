@@ -219,8 +219,14 @@ in one animation frame rather than each reacting to every event.
 npm install
 npm run dev      # watch build
 npm run build    # typecheck + production bundle
+npm test         # unit tests for the parser's pure pieces
 npm run smoke -- ~/Downloads/*.pptx   # parse + save round trip against real decks
 ```
+
+The unit tests cover the layers the rest of the parser is built on — the XML
+helpers, EMU-to-pixel frames and preset geometry, and theme and colour
+resolution — where a mistake changes what a slide looks like without breaking
+anything loudly enough for a round trip to notice.
 
 The smoke test runs the parser *and the renderer* under Node with jsdom, then
 drives the same code paths the UI does: it edits a run in the rendered DOM,
