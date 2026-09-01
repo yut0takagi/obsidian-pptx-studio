@@ -149,7 +149,8 @@ export class PptxSettingsTab extends PluginSettingTab {
 				this.plugin.settings.exportScale = Number(value) || 2;
 				break;
 			case "exportFolder":
-				this.plugin.settings.exportFolder = String(value ?? "").trim();
+				this.plugin.settings.exportFolder =
+					typeof value === "string" ? value.trim() : "";
 				break;
 			default:
 				return;
@@ -177,6 +178,8 @@ export class PptxSettingsTab extends PluginSettingTab {
 							value === "en" || value === "ja" ? value : "auto";
 						await this.plugin.saveSettings();
 						// Rebuild this pane and any open deck so the change is visible now.
+						// display() is deprecated as of Obsidian 1.13, but minAppVersion
+						// is 1.7.2, so it stays until that floor rises.
 						this.display();
 						this.plugin.refreshViews();
 					}),

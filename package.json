@@ -8,6 +8,7 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "typecheck": "tsc -noEmit -skipLibCheck",
+    "lint": "eslint .",
     "test": "node esbuild.tests.mjs && node --test \"tests/.build/*.test.cjs\"",
     "smoke": "node esbuild.smoke.mjs && node scripts/smoke.cjs",
     "fixture": "node scripts/make-fixture.mjs",
@@ -24,9 +25,12 @@
     "@types/jsdom": "^30.0.0",
     "@types/node": "^22.5.0",
     "esbuild": "^0.23.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-obsidianmd": "^0.4.2",
     "jsdom": "^29.1.1",
     "obsidian": "^1.7.2",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.69.0"
   },
   "dependencies": {
     "fflate": "^0.8.2"

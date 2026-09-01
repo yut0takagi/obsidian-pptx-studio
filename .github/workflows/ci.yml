@@ -4,6 +4,9 @@ on:
   push:
     branches: ["main"]
   pull_request:
+  # So a run can be repeated after a flake, or against a dependency bump,
+  # without inventing a commit to hang it on.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,18 +19,34 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      # One version failing should not hide what the other one would have said.
+      fail-fast: false
+      matrix:
+        # Node is only ever the build host here — the plugin itself runs in
+        # Obsidian's Electron — so the versions worth checking are the one the
+        # release builds on and the one the toolchain is moving to.
+        node: [22, 24]
     steps:
+      # Third-party actions are pinned to a commit, because a tag can be moved
+      # to point at something else. The comment says which release it was.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      # Errors fail the run; the warnings the Obsidian rules raise are left
+      # visible rather than blocking, which is the severity they ship with.
+      - name: Lint
+        run: npm run lint
 
       # Typechecks and bundles, so a break in either shows up here rather than
       # at release time, when the tag has already been pushed.
@@ -39,3 +58,16 @@ jobs:
 
       - name: Smoke test
         run: npm run smoke -- tests/fixtures/sample.pptx
+
+      # The same three files a release ships, so a change can be dropped into a
+      # real vault from the pull request instead of being built by hand. One
+      # version is enough; the bundle does not differ between them.
+      - name: Upload plugin build
+        if: matrix.node == 22
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pptx-studio
+          path: |
+            main.js
+            manifest.json
+            styles.css
