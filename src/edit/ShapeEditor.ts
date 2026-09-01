@@ -1,9 +1,25 @@
 import type { Frame, Shape } from "../pptx/types";
 import { shapeRegistry } from "../render/renderSlide";
 import type { CommandContext } from "./commands";
-import { deleteSelection, duplicateSelection, selectedShapes } from "./commands";
+import { deleteSelection, duplicateSelection } from "./commands";
 import type { DeckEditor } from "./DeckEditor";
+import {
+	DRAG_THRESHOLD,
+	type HandleId,
+	HANDLES,
+	MIN_SIZE,
+	ROTATE_SNAP,
+	SNAP,
+	applyToModel,
+	bestSnap,
+	intersects,
+	rotatedResize,
+	sameFrame,
+	unionFrame,
+} from "./dragMath";
 import { writeFrame, writeRotation } from "./geometryWrite";
+import { applyLive } from "./liveFrame";
+import { SelectionOverlay } from "./SelectionOverlay";
 import type { PartsPatch } from "./History";
 import type { Selection } from "./Selection";
 
@@ -33,25 +49,6 @@ export interface ShapeEditorOptions {
 	/** Gives the guide controller first refusal on a press, so guides can be dragged. */
 	claimPointer?: (event: PointerEvent) => boolean;
 }
-
-type HandleId = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
-
-const HANDLES: { id: HandleId; fx: number; fy: number; cursor: string }[] = [
-	{ id: "nw", fx: 0, fy: 0, cursor: "nwse-resize" },
-	{ id: "n", fx: 0.5, fy: 0, cursor: "ns-resize" },
-	{ id: "ne", fx: 1, fy: 0, cursor: "nesw-resize" },
-	{ id: "e", fx: 1, fy: 0.5, cursor: "ew-resize" },
-	{ id: "se", fx: 1, fy: 1, cursor: "nwse-resize" },
-	{ id: "s", fx: 0.5, fy: 1, cursor: "ns-resize" },
-	{ id: "sw", fx: 0, fy: 1, cursor: "nesw-resize" },
-	{ id: "w", fx: 0, fy: 0.5, cursor: "ew-resize" },
-];
-
-const DRAG_THRESHOLD = 2;
-const MIN_SIZE = 6;
-const SNAP = 6;
-/** Rotation snaps to this many degrees while Shift is held. */
-const ROTATE_SNAP = 15;
 
 interface DragItem {
 	shape: Shape;
@@ -113,12 +110,11 @@ type Drag = MoveDrag | ResizeDrag | RotateDrag | MarqueeDrag;
  */
 export class ShapeEditor {
 	private slideEl: HTMLElement | null = null;
-	private overlay: HTMLElement | null = null;
-	private guideLayer: HTMLElement | null = null;
-	private marqueeEl: HTMLElement | null = null;
 	private drag: Drag | null = null;
+	private readonly overlay: SelectionOverlay;
 
 	constructor(private readonly options: ShapeEditorOptions) {
+		this.overlay = new SelectionOverlay(options.getScale);
 		options.selection.onChange(() => this.syncOverlay());
 	}
 
@@ -161,13 +157,13 @@ export class ShapeEditor {
 	detach(slideEl: HTMLElement): void {
 		slideEl.removeEventListener("pointerdown", this.onPointerDown);
 		slideEl.removeEventListener("contextmenu", this.onContextMenu);
-		if (this.slideEl === slideEl) this.clearLayers();
+		if (this.slideEl === slideEl) this.overlay.clear();
 	}
 
 	/** Tell the editor which rendered slide is currently on screen. */
 	setActive(slideEl: HTMLElement | null): void {
-		this.clearLayers();
 		this.slideEl = slideEl;
+		this.overlay.setSlide(slideEl);
 		this.syncOverlay();
 	}
 
@@ -189,41 +185,11 @@ export class ShapeEditor {
 		this.syncOverlay();
 	}
 
-	private clearLayers(): void {
-		this.overlay?.remove();
-		this.guideLayer?.remove();
-		this.overlay = null;
-		this.guideLayer = null;
-		this.marqueeEl = null;
-	}
-
 	private get slideIndex(): number {
 		return Number(this.slideEl?.dataset.slideIndex ?? 0) - 1;
 	}
 
 	// ------------------------------------------------------------- overlay
-
-	private ensureLayers(): void {
-		const slideEl = this.slideEl;
-		if (!slideEl) return;
-		if (this.guideLayer?.isConnected && this.overlay?.isConnected) return;
-		this.clearLayers();
-
-		this.guideLayer = slideEl.createDiv({ cls: "pptx-guides" });
-		Object.assign(this.guideLayer.style, {
-			position: "absolute",
-			inset: "0",
-			pointerEvents: "none",
-			zIndex: "40",
-		});
-		this.overlay = slideEl.createDiv({ cls: "pptx-overlay" });
-		Object.assign(this.overlay.style, {
-			position: "absolute",
-			inset: "0",
-			pointerEvents: "none",
-			zIndex: "50",
-		});
-	}
 
 	private elementFor(id: string): HTMLElement | null {
 		if (!this.slideEl) return null;
@@ -245,103 +211,7 @@ export class ShapeEditor {
 	}
 
 	private syncOverlay(): void {
-		if (!this.slideEl) return;
-		this.ensureLayers();
-		const overlay = this.overlay;
-		if (!overlay) return;
-		overlay.empty();
-
-		const items = this.selectedItems();
-		if (items.length === 0) return;
-
-		const scale = Math.max(this.options.getScale(), 0.05);
-		const border = 1.5 / scale;
-
-		// Each shape gets a thin outline; the handles live on one box around the
-		// whole selection, which is what a multi-shape resize actually scales.
-		if (items.length > 1) {
-			for (const { shape } of items) {
-				const outline = overlay.createDiv({ cls: "pptx-selection is-member" });
-				Object.assign(outline.style, {
-					position: "absolute",
-					pointerEvents: "none",
-					boxSizing: "border-box",
-					left: `${shape.frame.x}px`,
-					top: `${shape.frame.y}px`,
-					width: `${shape.frame.w}px`,
-					height: `${shape.frame.h}px`,
-					outline: `${border}px dashed var(--interactive-accent, #2f6fed)`,
-					transform: shape.frame.rot ? `rotate(${shape.frame.rot}deg)` : "",
-					transformOrigin: "center center",
-				});
-			}
-		}
-
-		const single = items.length === 1 ? items[0].shape : null;
-		const bounds = single ? single.frame : unionFrame(items.map((i) => i.shape.frame));
-		const box = overlay.createDiv({ cls: "pptx-selection" });
-		Object.assign(box.style, {
-			position: "absolute",
-			pointerEvents: "none",
-			boxSizing: "border-box",
-			left: `${bounds.x}px`,
-			top: `${bounds.y}px`,
-			width: `${bounds.w}px`,
-			height: `${bounds.h}px`,
-			outline: `${border}px ${this.editing ? "dashed" : "solid"} var(--interactive-accent, #2f6fed)`,
-			transform: single?.frame.rot ? `rotate(${single.frame.rot}deg)` : "",
-			transformOrigin: "center center",
-		});
-
-		const size = 9 / scale;
-		for (const handle of HANDLES) {
-			const el = box.createDiv({ cls: "pptx-handle" });
-			el.dataset.handle = handle.id;
-			Object.assign(el.style, {
-				position: "absolute",
-				pointerEvents: "auto",
-				cursor: handle.cursor,
-				boxSizing: "border-box",
-				width: `${size}px`,
-				height: `${size}px`,
-				left: `${bounds.w * handle.fx - size / 2}px`,
-				top: `${bounds.h * handle.fy - size / 2}px`,
-				border: `${border}px solid var(--interactive-accent, #2f6fed)`,
-				background: "var(--background-primary, #fff)",
-				borderRadius: `${size / 4}px`,
-			});
-		}
-
-		// Rotation is only offered for a single shape: rotating a multi-selection
-		// about a shared centre is a different operation, and guessing wrong here
-		// would scatter the shapes.
-		if (single) {
-			const stem = box.createDiv({ cls: "pptx-rotate-stem" });
-			Object.assign(stem.style, {
-				position: "absolute",
-				left: `${bounds.w / 2 - border / 2}px`,
-				top: `${-size * 2}px`,
-				width: `${border}px`,
-				height: `${size * 2}px`,
-				background: "var(--interactive-accent, #2f6fed)",
-				pointerEvents: "none",
-			});
-			const knob = box.createDiv({ cls: "pptx-rotate" });
-			knob.dataset.rotate = "1";
-			Object.assign(knob.style, {
-				position: "absolute",
-				pointerEvents: "auto",
-				cursor: "grab",
-				boxSizing: "border-box",
-				width: `${size}px`,
-				height: `${size}px`,
-				left: `${bounds.w / 2 - size / 2}px`,
-				top: `${-size * 2.8}px`,
-				border: `${border}px solid var(--interactive-accent, #2f6fed)`,
-				background: "var(--background-primary, #fff)",
-				borderRadius: "50%",
-			});
-		}
+		this.overlay.sync(this.selectedItems(), this.editing);
 	}
 
 	// -------------------------------------------------------------- input
@@ -584,8 +454,7 @@ export class ShapeEditor {
 		if (!drag || event.pointerId !== drag.pointerId) return;
 		this.unlisten();
 		this.drag = null;
-		this.guideLayer?.empty();
-		this.marqueeEl = null;
+		this.overlay.endGesture();
 
 		if (!drag.moved || drag.kind === "marquee") {
 			this.syncOverlay();
@@ -767,9 +636,7 @@ export class ShapeEditor {
 			drag.rotations.set(item.shape.id, rotation);
 			item.el.setCssStyles({ transform: `rotate(${rotation}deg)`, transformOrigin: "center center" });
 		}
-		const box = this.overlay?.querySelector<HTMLElement>(".pptx-selection:not(.is-member)");
-		const rotation = drag.rotations.get(drag.items[0].shape.id) ?? 0;
-		if (box) box.setCssStyles({ transform: `rotate(${rotation}deg)` });
+		this.overlay.previewRotation(drag.rotations.get(drag.items[0].shape.id) ?? 0);
 	}
 
 	// ------------------------------------------------------------ marquee
@@ -792,23 +659,7 @@ export class ShapeEditor {
 			h: Math.abs(a.y - b.y),
 		};
 
-		this.ensureLayers();
-		if (!this.marqueeEl && this.guideLayer) {
-			this.marqueeEl = this.guideLayer.createDiv({ cls: "pptx-marquee" });
-			Object.assign(this.marqueeEl.style, {
-				position: "absolute",
-				border: `${1 / scale}px solid var(--interactive-accent, #2f6fed)`,
-				background: "rgba(47, 111, 237, 0.12)",
-			});
-		}
-		if (this.marqueeEl) {
-			Object.assign(this.marqueeEl.style, {
-				left: `${box.x}px`,
-				top: `${box.y}px`,
-				width: `${box.w}px`,
-				height: `${box.h}px`,
-			});
-		}
+		this.overlay.showMarquee(box);
 
 		const hits = new Set(drag.additive ? drag.baseIds : []);
 		for (const el of Array.from(slideEl.querySelectorAll<HTMLElement>("[data-shape-id]"))) {
@@ -846,71 +697,11 @@ export class ShapeEditor {
 	}
 
 	private drawGuides(matched: { xs: number[]; ys: number[] }): void {
-		const layer = this.guideLayer;
-		if (!layer) return;
-		for (const el of Array.from(layer.querySelectorAll(".pptx-guide"))) el.remove();
-		const scale = Math.max(this.options.getScale(), 0.05);
-		const thickness = 1 / scale;
-		for (const x of matched.xs) {
-			const line = layer.createDiv({ cls: "pptx-guide" });
-			Object.assign(line.style, {
-				position: "absolute",
-				left: `${x - thickness / 2}px`,
-				top: "0",
-				width: `${thickness}px`,
-				height: "100%",
-				background: "#e8590c",
-			});
-		}
-		for (const y of matched.ys) {
-			const line = layer.createDiv({ cls: "pptx-guide" });
-			Object.assign(line.style, {
-				position: "absolute",
-				top: `${y - thickness / 2}px`,
-				left: "0",
-				height: `${thickness}px`,
-				width: "100%",
-				background: "#e8590c",
-			});
-		}
+		this.overlay.showGuides(matched);
 	}
 
-	/** Move the outlines with the shapes mid-drag, without a full rebuild. */
 	private previewOverlay(frames: Map<string, Frame>): void {
-		const overlay = this.overlay;
-		if (!overlay) return;
-		const items = this.selectedItems();
-		const members = Array.from(overlay.querySelectorAll<HTMLElement>(".pptx-selection.is-member"));
-		items.forEach((item, i) => {
-			const frame = frames.get(item.shape.id);
-			const el = members[i];
-			if (!frame || !el) return;
-			place(el, frame);
-		});
-
-		const box = overlay.querySelector<HTMLElement>(".pptx-selection:not(.is-member)");
-		if (!box) return;
-		const list = items
-			.map((i) => frames.get(i.shape.id))
-			.filter((f): f is Frame => f !== undefined);
-		if (list.length === 0) return;
-		const bounds = list.length === 1 ? list[0] : unionFrame(list);
-		place(box, bounds);
-
-		const scale = Math.max(this.options.getScale(), 0.05);
-		const size = 9 / scale;
-		for (const handle of HANDLES) {
-			const el = box.querySelector<HTMLElement>(`[data-handle="${handle.id}"]`);
-			if (!el) continue;
-			el.setCssStyles({
-				left: `${bounds.w * handle.fx - size / 2}px`,
-				top: `${bounds.h * handle.fy - size / 2}px`,
-			});
-		}
-		const knob = box.querySelector<HTMLElement>("[data-rotate]");
-		if (knob) knob.setCssStyles({ left: `${bounds.w / 2 - size / 2}px` });
-		const stem = box.querySelector<HTMLElement>(".pptx-rotate-stem");
-		if (stem) stem.setCssStyles({ left: `${bounds.w / 2 - 0.75 / scale}px` });
+		this.overlay.preview(this.selectedItems(), frames);
 	}
 
 	// ----------------------------------------------------------- keyboard
@@ -1007,124 +798,6 @@ export class ShapeEditor {
 
 // ------------------------------------------------------------- helpers
 
-function place(el: HTMLElement, frame: Frame): void {
-	el.setCssStyles({
-		left: `${frame.x}px`,
-		top: `${frame.y}px`,
-		width: `${frame.w}px`,
-		height: `${frame.h}px`,
-	});
-}
-
-/** Resize a rotated shape along its own axes, holding the anchor corner still. */
-function rotatedResize(
-	start: Frame,
-	handle: { fx: number; fy: number },
-	dx: number,
-	dy: number,
-	keepAspect: boolean,
-): Frame {
-	const theta = (start.rot * Math.PI) / 180;
-	const cos = Math.cos(theta);
-	const sin = Math.sin(theta);
-	const localDx = dx * cos + dy * sin;
-	const localDy = -dx * sin + dy * cos;
-
-	const movesLeft = handle.fx === 0;
-	const movesRight = handle.fx === 1;
-	const movesTop = handle.fy === 0;
-	const movesBottom = handle.fy === 1;
-
-	let w = start.w + (movesRight ? localDx : movesLeft ? -localDx : 0);
-	let h = start.h + (movesBottom ? localDy : movesTop ? -localDy : 0);
-	if (keepAspect && movesLeft !== movesRight && movesTop !== movesBottom && start.h > 0) {
-		const ratio = start.w / start.h;
-		if (Math.abs(w - start.w) > Math.abs(h - start.h)) h = w / ratio;
-		else w = h * ratio;
-	}
-	w = Math.max(MIN_SIZE, w);
-	h = Math.max(MIN_SIZE, h);
-
-	const anchorX = movesLeft ? 1 : 0;
-	const anchorY = movesTop ? 1 : 0;
-	const a0x = (anchorX ? start.w : 0) - start.w / 2;
-	const a0y = (anchorY ? start.h : 0) - start.h / 2;
-	const a1x = (anchorX ? w : 0) - w / 2;
-	const a1y = (anchorY ? h : 0) - h / 2;
-	const cx = start.x + start.w / 2 + (a0x - a1x) * cos - (a0y - a1y) * sin;
-	const cy = start.y + start.h / 2 + (a0x - a1x) * sin + (a0y - a1y) * cos;
-	return { ...start, x: cx - w / 2, y: cy - h / 2, w, h };
-}
-
-function applyLive(el: HTMLElement, shape: Shape, frame: Frame): void {
-	place(el, frame);
-	if (shape.kind === "group") {
-		const inner = el.firstElementChild;
-		if (inner?.instanceOf(HTMLElement)) {
-			const sx = shape.childOffset.w > 0 ? frame.w / shape.childOffset.w : 1;
-			const sy = shape.childOffset.h > 0 ? frame.h / shape.childOffset.h : 1;
-			inner.setCssStyles({
-				transform: `scale(${sx}, ${sy}) translate(${-shape.childOffset.x}px, ${-shape.childOffset.y}px)`,
-			});
-		}
-	}
-}
-
-/** Keep the in-memory model in step so the selection survives without a rebuild. */
-function applyToModel(shape: Shape, frame: Frame): void {
-	shape.frame.x = frame.x;
-	shape.frame.y = frame.y;
-	shape.frame.w = frame.w;
-	shape.frame.h = frame.h;
-}
-
-export function unionFrame(frames: Frame[]): Frame {
-	const left = Math.min(...frames.map((f) => f.x));
-	const top = Math.min(...frames.map((f) => f.y));
-	const right = Math.max(...frames.map((f) => f.x + f.w));
-	const bottom = Math.max(...frames.map((f) => f.y + f.h));
-	return { x: left, y: top, w: right - left, h: bottom - top, rot: 0, flipH: false, flipV: false };
-}
-
-function sameFrame(a: Frame, b: Frame): boolean {
-	return (
-		Math.abs(a.x - b.x) < 0.01 &&
-		Math.abs(a.y - b.y) < 0.01 &&
-		Math.abs(a.w - b.w) < 0.01 &&
-		Math.abs(a.h - b.h) < 0.01
-	);
-}
-
-function intersects(a: Frame, b: { x: number; y: number; w: number; h: number }): boolean {
-	return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
-
-function bestSnap(
-	values: number[],
-	guides: number[],
-	threshold: number,
-): { delta: number; guide: number } | null {
-	let best: { delta: number; guide: number } | null = null;
-	for (const value of values) {
-		for (const guide of guides) {
-			const delta = guide - value;
-			if (Math.abs(delta) > threshold) continue;
-			if (!best || Math.abs(delta) < Math.abs(best.delta)) best = { delta, guide };
-		}
-	}
-	return best;
-}
-
 function isHtmlElement(value: EventTarget | null): value is HTMLElement {
 	return (value as Node | null)?.instanceOf(HTMLElement) === true;
-}
-
-/** Exported for the ribbon, which needs to know whether commands apply. */
-export function selectionSummary(ctx: CommandContext | null): {
-	count: number;
-	hasGroup: boolean;
-} {
-	if (!ctx) return { count: 0, hasGroup: false };
-	const shapes = selectedShapes(ctx);
-	return { count: shapes.length, hasGroup: shapes.some((s) => s.kind === "group") };
 }
