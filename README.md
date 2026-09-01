@@ -234,3 +234,24 @@ deletes a paragraph, moves and resizes shapes, inserts text boxes, shapes,
 tables and pictures, groups and ungroups, reorders, aligns, formats, adds,
 duplicates, reorders and deletes slides — then undoes the lot and checks the
 package came back byte-for-byte.
+
+## Releasing
+
+```bash
+npm version patch --no-git-tag-version   # or minor / major
+```
+
+That moves package.json, and the `version` script carries manifest.json and
+versions.json along with it, so the three cannot drift apart. Commit the bump on
+a `release/x.y.z` branch, merge it, then tag the merge commit on main:
+
+```bash
+git tag 0.1.4 && git push origin 0.1.4
+```
+
+The tag starts the release workflow, which checks all three versions against it,
+rebuilds, runs the unit and smoke tests again — the tagged commit is not
+necessarily one CI has already seen — and attaches `main.js`, `manifest.json`
+and `styles.css` to a release named after the tag. Tags are the bare version
+with no `v`, because Obsidian looks for a release whose name matches the
+manifest.

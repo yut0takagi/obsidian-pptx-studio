@@ -10,7 +10,8 @@
     "typecheck": "tsc -noEmit -skipLibCheck",
     "test": "node esbuild.tests.mjs && node --test \"tests/.build/*.test.cjs\"",
     "smoke": "node esbuild.smoke.mjs && node scripts/smoke.cjs",
-    "fixture": "node scripts/make-fixture.mjs"
+    "fixture": "node scripts/make-fixture.mjs",
+    "version": "node scripts/version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [
     "obsidian",

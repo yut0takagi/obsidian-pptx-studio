@@ -3,7 +3,9 @@ name: Release
 on:
   push:
     tags:
-      - "*"
+      # Release tags are the bare version, with no `v`, because Obsidian expects
+      # the tag to match the manifest. Anything else is not a release.
+      - "[0-9]+.[0-9]+.[0-9]+"
 
 permissions:
   contents: write
@@ -26,13 +28,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # versions.json is the file Obsidian reads to decide whether a vault is
+      # new enough for this build, so a missing entry breaks updates quietly.
       - name: Verify version
         run: |
           test "$(node -p "require('./package.json').version")" = "${GITHUB_REF_NAME}"
           test "$(node -p "require('./manifest.json').version")" = "${GITHUB_REF_NAME}"
+          test "$(node -p "require('./versions.json')['${GITHUB_REF_NAME}'] ?? ''")" \
+             = "$(node -p "require('./manifest.json').minAppVersion")"
 
       - name: Build
         run: npm run build
+
+      # The tagged commit is not necessarily one CI has seen, so the checks run
+      # again here rather than being taken on trust.
+      - name: Unit tests
+        run: npm test
 
       - name: Smoke test
         run: npm run smoke -- tests/fixtures/sample.pptx
