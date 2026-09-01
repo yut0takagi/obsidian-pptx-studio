@@ -44,12 +44,17 @@ export function installDom(): void {
 	// Obsidian adds these to elements; the renderer uses them freely.
 	const proto = (dom.window as unknown as { Element: { prototype: Element } }).Element
 		.prototype as Element & Record<string, unknown>;
+	// Obsidian takes a space-separated string as readily as separate arguments;
+	// classList does not, and throws on the space. Splitting here keeps the shim
+	// honest about what the real API accepts.
+	const tokens = (classes: string[]): string[] =>
+		classes.flatMap((cls) => cls.split(/\s+/).filter(Boolean));
 	proto.addClass = function (this: Element, ...classes: string[]) {
-		this.classList.add(...classes);
+		this.classList.add(...tokens(classes));
 		return this;
 	};
 	proto.removeClass = function (this: Element, ...classes: string[]) {
-		this.classList.remove(...classes);
+		this.classList.remove(...tokens(classes));
 		return this;
 	};
 	proto.hasClass = function (this: Element, cls: string) {
