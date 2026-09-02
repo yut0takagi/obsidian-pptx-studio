@@ -339,7 +339,7 @@ const EN = {
 	"settings.editingDesc":
 		"Double-click slide text to edit it, then save with Cmd/Ctrl+S. The first save of a deck " +
 		"leaves a .pptx.bak copy of the original beside it. Everything this plugin does not " +
-		"understand — animations, transitions, embedded fonts — is written back unchanged.",
+		"understand — embedded fonts, effects it did not write itself — is written back unchanged.",
 
 	// --- shapes
 	"shape.rect": "Rectangle",
@@ -679,7 +679,7 @@ const JA: Record<StringKey, string> = {
 	"settings.editingDesc":
 		"テキストボックスをダブルクリックすると編集でき、Cmd/Ctrl+S で保存します。" +
 		"初回保存時に元のファイルの控えを .pptx.bak として残します。" +
-		"アニメーション・画面切り替え・埋め込みフォントなど、このプラグインが解釈しない情報はそのまま書き戻されます。",
+		"埋め込みフォントや、このプラグイン自身が書いたのではない効果など、解釈しない情報はそのまま書き戻されます。",
 
 	"shape.rect": "四角形",
 	"shape.roundRect": "角丸四角形",
