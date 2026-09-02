@@ -1,0 +1,21 @@
+name: Feature request
+description: Something the plugin should be able to do and cannot.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you are trying to do
+      description: >
+        The task, not the feature. Knowing what you are working around is more
+        use than a description of the button you had in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: shape
+    attributes:
+      label: What it might look like
+      description: If you already have a shape in mind for it, describe it here.
+    validations:
+      required: false

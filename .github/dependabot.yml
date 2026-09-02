@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # The toolchain is almost all of what is installed — esbuild, typescript,
+  # eslint, jsdom — and none of it ships to a vault. Grouping it into one pull
+  # request a week keeps the signal (a bump broke the build) without a pull
+  # request per package. fflate is the only runtime dependency, so it is left
+  # on its own, where it is worth reading the changelog.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      toolchain:
+        dependency-type: development
+
+  # The workflows pin actions to commit SHAs, which is exactly the case where
+  # nothing gets updated unless something is watching.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

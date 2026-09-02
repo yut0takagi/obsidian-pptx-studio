@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in the plugin does not do what it says it does.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: deck
+    attributes:
+      label: The deck
+      description: >
+        Most rendering and saving bugs live in one particular file. If you can
+        attach the `.pptx`, or a cut-down one that still shows the problem, that
+        is usually the whole diagnosis. If you cannot share it, say what is on
+        the slide — SmartArt, a chart, an embedded video, a particular font.
+    validations:
+      required: false
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Obsidian, PPTX Studio, and your operating system.
+      placeholder: "Obsidian 1.7.7, PPTX Studio 0.1.3, macOS 15.1"
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Console output
+      description: >
+        Anything red in the developer console, if there is any.
+        Ctrl/Cmd+Shift+I opens it.
+      render: text
+    validations:
+      required: false
