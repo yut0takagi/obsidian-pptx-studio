@@ -219,9 +219,16 @@ in one animation frame rather than each reacting to every event.
 npm install
 npm run dev      # watch build
 npm run build    # typecheck + production bundle
+npm run lint     # Obsidian plugin rules over src
 npm test         # unit tests for the parser's pure pieces
 npm run smoke -- ~/Downloads/*.pptx   # parse + save round trip against real decks
 ```
+
+Linting covers `src` only. That is the code that ships into Obsidian, and the
+rules worth enforcing — no Node built-ins, `createEl` over `innerHTML` — are
+about that runtime. The tests and build scripts run under Node, where the same
+rules only produce noise, and `tsc` already typechecks them. Errors fail the
+build; warnings are left visible rather than blocking.
 
 The unit tests cover the layers the rest of the parser is built on — the XML
 helpers, EMU-to-pixel frames and preset geometry, and theme and colour
@@ -255,3 +262,10 @@ necessarily one CI has already seen — and attaches `main.js`, `manifest.json`
 and `styles.css` to a release named after the tag. Tags are the bare version
 with no `v`, because Obsidian looks for a release whose name matches the
 manifest.
+
+Each of those files is attested, so a download can be checked against the
+workflow run that produced it:
+
+```bash
+gh attestation verify main.js --repo yut0takagi/obsidian-pptx-studio
+```
