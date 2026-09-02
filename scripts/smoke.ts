@@ -18,6 +18,7 @@ import { commitTextBody } from "../src/edit/textEdit";
 import { writeCrop } from "../src/edit/CropController";
 import { guideParts, readGuides, writeGuides } from "../src/ooxml/guides";
 import { DeckEditor } from "../src/edit/DeckEditor";
+import { findMatches, replaceAll } from "../src/edit/findReplace";
 import { Selection } from "../src/edit/Selection";
 import {
 	type CommandContext,
@@ -745,6 +746,23 @@ function checkEditorCommands(path: string): void {
 					: "no run came back linked";
 			},
 		);
+		// Find and replace reaches every slide's XML rather than the rendered one,
+		// so it has to survive the same round trip as anything else written back.
+		step(
+			"replace text across the deck",
+			() => replaceAll(ctx(), "Text", "Replaced", { matchCase: true }, "Replace all") > 0,
+			() => {
+				const deckNow = ctx().deck;
+				const left = findMatches(deckNow, "Text", { matchCase: true }).filter(
+					(m) => m.replaceable,
+				);
+				if (left.length > 0) return `${left.length} replaceable occurrences were left behind`;
+				return findMatches(deckNow, "Replaced", { matchCase: true }).length > 0
+					? null
+					: "the replacement did not come back";
+			},
+		);
+
 		// Copying formatting only fills a buffer, so it is deliberately not undoable
 		// and must not be counted as a step.
 		if (copyFormatting(ctx())) pass("copy formatting");

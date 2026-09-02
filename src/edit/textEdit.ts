@@ -99,7 +99,8 @@ function applyParagraph(paraEl: Element, entry: EditedParagraph): void {
 	collapseToSingleRun(paraEl, entry.text);
 }
 
-function setRunText(runEl: Element, text: string): void {
+/** Set a run's text, keeping the whitespace handling OOXML requires. */
+export function setRunText(runEl: Element, text: string): void {
 	const t = child(runEl, "t");
 	if (t) {
 		t.textContent = text;

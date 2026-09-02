@@ -43,6 +43,7 @@ import { InspectorPane } from "../ui/InspectorPane";
 import { PaneSplitter } from "../ui/PaneSplitter";
 import { SelectionPane } from "../ui/SelectionPane";
 import {
+	FindReplaceModal,
 	ImagePickerModal,
 	LayoutPickerModal,
 	PromptModal,
@@ -52,6 +53,7 @@ import {
 import { type RibbonHost, buildTabs } from "../ui/tabs";
 import { t } from "../i18n";
 import type PptxStudioPlugin from "../main";
+import { findMatches, replaceAll } from "../edit/findReplace";
 
 export const VIEW_TYPE_PPTX = "pptx-studio";
 
@@ -598,6 +600,7 @@ export class PptxView extends FileView {
 			pickTable: () => this.pickTable(),
 			pickLayout: () => this.pickLayout(),
 			pickHyperlink: () => this.pickHyperlink(),
+			findReplace: () => this.openFindReplace(),
 			tableSelection: this.tableSelection,
 			slideBackground: () => {
 				const ctx = this.context();
@@ -647,6 +650,33 @@ export class PptxView extends FileView {
 					new Notice(t("notice.imageFailed", { message: (error as Error).message }), 8000);
 				}
 			})();
+		}).open();
+	}
+
+	/**
+	 * Find and replace over the whole deck.
+	 *
+	 * The search reads every slide's XML, not just the one on screen, so a hit
+	 * on slide 30 is found without rendering slides 2 to 29.
+	 */
+	private openFindReplace(): void {
+		const loaded = this.loaded;
+		if (!loaded) return;
+		new FindReplaceModal(this.app, {
+			search: (query, matchCase) => findMatches(loaded.deck, query, { matchCase }),
+			replaceAll: (query, replacement, matchCase) => {
+				const ctx = this.context();
+				if (!ctx) return 0;
+				const count = replaceAll(ctx, query, replacement, { matchCase }, t("modal.replaceAll"));
+				if (count > 0) this.scheduleUi();
+				return count;
+			},
+			reveal: (match) => {
+				this.viewer?.go(match.slideIndex);
+				this.selection.set(match.slideIndex, [match.shapeId]);
+				this.viewer?.focus();
+				this.scheduleUi();
+			},
 		}).open();
 	}
 
@@ -781,6 +811,7 @@ export class PptxView extends FileView {
 				this.shapeEditor?.selectAll();
 				this.scheduleUi();
 			},
+			f: () => this.openFindReplace(),
 		};
 		const handler = handlers[key];
 		if (!handler) return;

@@ -75,6 +75,7 @@ export interface RibbonHost {
 	canUndo: () => boolean;
 	canRedo: () => boolean;
 	selectAll: () => void;
+	findReplace: () => void;
 	pickImage: () => void;
 	pickTable: () => void;
 	pickLayout: () => void;
@@ -559,6 +560,13 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 							tooltip: t("cmd.selectAll"),
 							isEnabled: host.canEdit,
 							onClick: host.selectAll,
+						},
+						{
+							kind: "button",
+							icon: "search",
+							tooltip: t("cmd.find"),
+							isEnabled: host.canEdit,
+							onClick: host.findReplace,
 						},
 						{
 							kind: "button",
