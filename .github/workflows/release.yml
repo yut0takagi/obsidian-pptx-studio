@@ -2,27 +2,79 @@ name: Release
 
 on:
   push:
+    # Merging a release pull request is the release. The version is read from
+    # manifest.json and the tag is created by the release itself, further down,
+    # rather than by hand afterwards.
+    branches: ["main"]
+    # Pushing a tag still works, for releasing a commit that is not the tip of
+    # main. Release tags are the bare version, with no `v`, because Obsidian
+    # expects the tag to match the manifest.
     tags:
-      # Release tags are the bare version, with no `v`, because Obsidian expects
-      # the tag to match the manifest. Anything else is not a release.
       - "[0-9]+.[0-9]+.[0-9]+"
 
 permissions:
-  contents: write
-  attestations: write
-  id-token: write
+  contents: read
 
-# Two tags pushed close together would otherwise race each other to create a
-# release. Nothing here is cancelled: a half-published release is worse than a
-# slow one.
+# Two releases started close together would otherwise race each other. Nothing
+# here is cancelled: a half-published release is worse than a slow one.
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
+  # Most pushes to main are not releases, so the expensive job is guarded by a
+  # cheap one that works out the version and whether it has been published yet.
+  decide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.pick.outputs.version }}
+      publish: ${{ steps.pick.outputs.publish }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Pick the version
+        id: pick
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME}"
+          else
+            version="$(node -p "require('./manifest.json').version")"
+          fi
+
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "manifest.json holds '$version', which is not a release version" >&2; exit 1 ;;
+          esac
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # Every other push to main lands here: the version is one that has
+          # already gone out, so there is nothing to do.
+          if gh release view "$version" >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "$version is already released." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "Releasing $version." >> "$GITHUB_STEP_SUMMARY"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   release:
+    needs: decide
+    if: needs.decide.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    env:
+      VERSION: ${{ needs.decide.outputs.version }}
     steps:
       # Third-party actions are pinned to a commit, because a tag can be moved
       # to point at something else. The comment says which release it was.
@@ -40,11 +92,13 @@ jobs:
 
       # versions.json is the file Obsidian reads to decide whether a vault is
       # new enough for this build, so a missing entry breaks updates quietly.
+      # On a merge the version came from manifest.json, so that line is a
+      # tautology; it earns its place on the tag path, where it is not.
       - name: Verify version
         run: |
-          test "$(node -p "require('./package.json').version")" = "${GITHUB_REF_NAME}"
-          test "$(node -p "require('./manifest.json').version")" = "${GITHUB_REF_NAME}"
-          test "$(node -p "require('./versions.json')['${GITHUB_REF_NAME}'] ?? ''")" \
+          test "$(node -p "require('./package.json').version")" = "${VERSION}"
+          test "$(node -p "require('./manifest.json').version")" = "${VERSION}"
+          test "$(node -p "require('./versions.json')['${VERSION}'] ?? ''")" \
              = "$(node -p "require('./manifest.json').minAppVersion")"
 
       - name: Lint
@@ -53,21 +107,26 @@ jobs:
       - name: Build
         run: npm run build
 
-      # The tagged commit is not necessarily one CI has seen, so the checks run
-      # again here rather than being taken on trust.
+      # The commit being released is not necessarily one CI has seen, so the
+      # checks run again here rather than being taken on trust.
       - name: Unit tests
         run: npm test
 
       - name: Smoke test
         run: npm run smoke -- tests/fixtures/sample.pptx
 
+      # --target pins the tag to the commit that was just built, rather than
+      # wherever main happens to be by the time this runs. If the tag already
+      # exists — the tag path — gh uses it as it stands.
+      #
       # --generate-notes lists the pull requests merged since the last release,
-      # which is more use to someone deciding whether to update than the tag
-      # repeated back at them.
+      # which is more use to someone deciding whether to update than the
+      # version repeated back at them.
       - name: Create release
         run: |
-          gh release create "${GITHUB_REF_NAME}" main.js manifest.json styles.css \
-            --title "${GITHUB_REF_NAME}" \
+          gh release create "${VERSION}" main.js manifest.json styles.css \
+            --target "${GITHUB_SHA}" \
+            --title "${VERSION}" \
             --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}

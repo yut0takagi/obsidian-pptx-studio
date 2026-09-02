@@ -250,18 +250,27 @@ npm version patch --no-git-tag-version   # or minor / major
 
 That moves package.json, and the `version` script carries manifest.json and
 versions.json along with it, so the three cannot drift apart. Commit the bump on
-a `release/x.y.z` branch, merge it, then tag the merge commit on main:
+a `release/x.y.z` branch and open a pull request.
+
+**Merging it publishes the release.** The workflow reads the version out of
+manifest.json, notices it has not been released, checks that all three files
+agree, rebuilds, runs the unit and smoke tests again — the merge commit is not
+necessarily one CI has already seen — and attaches `main.js`, `manifest.json`
+and `styles.css` to a release named after the version. The tag is created by
+the release itself, against the commit that was built. There is nothing left to
+do by hand, and no window in which a tag exists without a release behind it.
+
+Every other push to main ends at a job that finds the current version already
+released, and stops.
+
+Pushing a tag still works, for releasing a commit that is not the tip of main:
 
 ```bash
-git tag 0.1.4 && git push origin 0.1.4
+git tag 0.1.5 <commit> && git push origin 0.1.5
 ```
 
-The tag starts the release workflow, which checks all three versions against it,
-rebuilds, runs the unit and smoke tests again — the tagged commit is not
-necessarily one CI has already seen — and attaches `main.js`, `manifest.json`
-and `styles.css` to a release named after the tag. Tags are the bare version
-with no `v`, because Obsidian looks for a release whose name matches the
-manifest.
+Tags are the bare version with no `v`, because Obsidian looks for a release
+whose name matches the manifest.
 
 Each of those files is attested, so a download can be checked against the
 workflow run that produced it:
