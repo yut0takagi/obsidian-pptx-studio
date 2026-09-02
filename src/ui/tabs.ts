@@ -94,6 +94,8 @@ export interface RibbonHost {
 	tableSelection: TableSelection;
 	slideBackground: () => string | null;
 	exportPng: () => void;
+	exportPdf: () => void;
+	printDeck: () => void;
 	extractMarkdown: () => void;
 	openExternally: () => void;
 }
@@ -902,6 +904,20 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 							label: t("cmd.exportPng"),
 							tooltip: t("cmd.exportPngTooltip"),
 							onClick: host.exportPng,
+						},
+						{
+							kind: "button",
+							icon: "file-down",
+							label: t("cmd.exportPdf"),
+							tooltip: t("cmd.exportPdfTooltip"),
+							onClick: host.exportPdf,
+						},
+						{
+							kind: "button",
+							icon: "printer",
+							label: t("cmd.print"),
+							tooltip: t("cmd.printTooltip"),
+							onClick: host.printDeck,
 						},
 						{
 							kind: "button",

@@ -9,12 +9,12 @@ import type { Deck, Slide } from "../pptx/types";
  * an SVG <foreignObject> and drawn to a canvas. Object URLs do not survive that
  * trip, so every image is re-inlined as a data URL first.
  */
-export async function renderSlideToPng(
+export async function rasteriseSlide(
 	deck: Deck,
 	slide: Slide,
 	pkg: PptxPackage,
 	scale: number,
-): Promise<ArrayBuffer> {
+): Promise<HTMLCanvasElement> {
 	const node = renderSlide(deck, slide);
 	inlineMedia(node, pkg);
 
@@ -34,10 +34,21 @@ export async function renderSlideToPng(
 	canvas.height = Math.round(deck.height * scale);
 	const ctx = canvas.getContext("2d");
 	if (!ctx) throw new Error("Could not get a 2D canvas context.");
+	// Slides are opaque; without this a deck with no background would come out
+	// transparent, which reads as black almost everywhere it is opened.
 	ctx.fillStyle = "#ffffff";
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
 	ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+	return canvas;
+}
 
+export async function renderSlideToPng(
+	deck: Deck,
+	slide: Slide,
+	pkg: PptxPackage,
+	scale: number,
+): Promise<ArrayBuffer> {
+	const canvas = await rasteriseSlide(deck, slide, pkg, scale);
 	const blob = await new Promise<Blob | null>((resolve) =>
 		canvas.toBlob((b) => resolve(b), "image/png"),
 	);

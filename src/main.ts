@@ -3,6 +3,8 @@ import { setLanguage, t } from "./i18n";
 import { DeckCache, type LoadedDeck } from "./DeckCache";
 import { deckToMarkdown } from "./export/markdown";
 import { pngFileName, renderSlideToPng } from "./export/png";
+import { deckToPdf, printDeck } from "./export/deckPdf";
+import { pdfFileName } from "./export/pdf";
 import { DEFAULT_SETTINGS, type PptxStudioSettings } from "./settings";
 import { PptxSettingsTab } from "./view/SettingsTab";
 import { PptxView, VIEW_TYPE_PPTX } from "./view/PptxView";
@@ -152,6 +154,42 @@ export default class PptxStudioPlugin extends Plugin {
 			new Notice(t("notice.exported", { path }));
 		} catch (error) {
 			new Notice(t("notice.exportFailed", { message: (error as Error).message }), 8000);
+		}
+	}
+
+	/**
+	 * Write the whole deck out as a PDF beside it.
+	 *
+	 * A long deck takes a moment per slide, so the notice counts them off rather
+	 * than leaving the window looking hung.
+	 */
+	async exportDeckPdf(loaded: LoadedDeck, file: TFile | null): Promise<void> {
+		const notice = new Notice(t("notice.rendering", { n: 0, total: loaded.deck.slides.length }), 0);
+		try {
+			const pdf = await deckToPdf(loaded.deck, loaded.pkg, this.settings.exportScale, (n, total) =>
+				notice.setMessage(t("notice.rendering", { n, total })),
+			);
+			const name = pdfFileName(file?.basename ?? loaded.deck.title);
+			const path = await this.resolveExportPath(name, file?.path ?? "");
+			await this.app.vault.createBinary(path, pdf.buffer.slice(0) as ArrayBuffer);
+			new Notice(t("notice.exported", { path }));
+		} catch (error) {
+			new Notice(t("notice.exportFailed", { message: (error as Error).message }), 8000);
+		} finally {
+			notice.hide();
+		}
+	}
+
+	async printDeck(loaded: LoadedDeck): Promise<void> {
+		const notice = new Notice(t("notice.rendering", { n: 0, total: loaded.deck.slides.length }), 0);
+		try {
+			await printDeck(loaded.deck, loaded.pkg, this.settings.exportScale, (n, total) =>
+				notice.setMessage(t("notice.rendering", { n, total })),
+			);
+		} catch (error) {
+			new Notice(t("notice.printFailed", { message: (error as Error).message }), 8000);
+		} finally {
+			notice.hide();
 		}
 	}
 

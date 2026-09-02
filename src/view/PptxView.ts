@@ -610,6 +610,12 @@ export class PptxView extends FileView {
 				return background?.kind === "solid" ? background.color : null;
 			},
 			exportPng: () => void this.exportCurrentSlide(),
+			exportPdf: () => {
+				if (this.loaded) void this.plugin.exportDeckPdf(this.loaded, this.file);
+			},
+			printDeck: () => {
+				if (this.loaded) void this.plugin.printDeck(this.loaded);
+			},
 			extractMarkdown: () => {
 				if (this.loaded) void this.plugin.extractMarkdown(this.loaded, this.file);
 			},
