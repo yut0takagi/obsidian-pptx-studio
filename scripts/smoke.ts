@@ -19,6 +19,13 @@ import { writeCrop } from "../src/edit/CropController";
 import { guideParts, readGuides, writeGuides } from "../src/ooxml/guides";
 import { DeckEditor } from "../src/edit/DeckEditor";
 import { findMatches, replaceAll } from "../src/edit/findReplace";
+import {
+	animateSelection,
+	clearSlideAnimations,
+	moveSelectionAnimation,
+	setSlideTransition,
+} from "../src/edit/animationCommands";
+import { readAnimations, readTransition } from "../src/ooxml/animation";
 import { Selection } from "../src/edit/Selection";
 import {
 	type CommandContext,
@@ -762,6 +769,75 @@ function checkEditorCommands(path: string): void {
 					: "the replacement did not come back";
 			},
 		);
+
+		// Transitions and animations are the one thing written back that the model
+		// never carries, so they are checked through a real serialise and reparse
+		// rather than against the DOM they were just written into.
+		const slidePart = (): Element | null => {
+			const bytes = pkg.serializePart(ctx().slide.partPath);
+			if (!bytes) return null;
+			return new DOMParser().parseFromString(
+				new TextDecoder().decode(bytes),
+				"application/xml",
+			).documentElement;
+		};
+
+		step(
+			"slide transition",
+			() => setSlideTransition(ctx(), { kind: "push", speed: "fast", direction: "u" }, "Transition"),
+			() => {
+				const read = readTransition(slidePart()!);
+				return read?.kind === "push" && read.direction === "u" && read.speed === "fast"
+					? null
+					: `transition came back as ${JSON.stringify(read)}`;
+			},
+		);
+
+		step(
+			"animate a shape",
+			() => {
+				selection.set(0, [textBoxId]);
+				return animateSelection(ctx(), "flyIn", "click", "Animate");
+			},
+			() => {
+				const entries = readAnimations(slidePart()!);
+				if (entries.length !== 1) return `read back ${entries.length} animations`;
+				return entries[0].shapeId === textBoxId && entries[0].effect === "flyIn"
+					? null
+					: `animation came back as ${JSON.stringify(entries[0])}`;
+			},
+		);
+
+		const secondShape = ownShapes().find((s) => s.id !== textBoxId);
+		if (secondShape) {
+			step(
+				"animate a second shape",
+				() => {
+					selection.set(0, [secondShape.id]);
+					return animateSelection(ctx(), "fade", "afterPrev", "Animate");
+				},
+				() => (readAnimations(slidePart()!).length === 2 ? null : "the second effect did not land"),
+			);
+			step(
+				"reorder animations",
+				() => moveSelectionAnimation(ctx(), -1, "Reorder"),
+				() => {
+					const entries = readAnimations(slidePart()!);
+					if (entries.length !== 2) return `read back ${entries.length} animations`;
+					// Moved to the front, it can no longer wait for a previous effect.
+					return entries[0].shapeId === secondShape.id && entries[0].trigger === "click"
+						? null
+						: `order came back as ${entries.map((e) => e.shapeId).join(",")}`;
+				},
+			);
+		}
+
+		step(
+			"clear the slide's animations",
+			() => clearSlideAnimations(ctx(), "Clear animations"),
+			() => (readAnimations(slidePart()!).length === 0 ? null : "animations survived the clear"),
+		);
+		selection.set(0, [textBoxId]);
 
 		// Copying formatting only fills a buffer, so it is deliberately not undoable
 		// and must not be counted as a step.

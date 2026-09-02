@@ -44,6 +44,7 @@ import {
 	splitTableCells,
 } from "../edit/tableCommands";
 import { insertAutoShape, insertLine, insertTextBox } from "../edit/insertCommands";
+import { buildAnimationTab } from "./animationTab";
 import {
 	canDeleteSlide,
 	deleteCurrentSlide,
@@ -746,6 +747,7 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 				{ title: t("group.slides"), items: slideItems },
 			],
 		},
+		buildAnimationTab(host),
 		{
 			id: "table",
 			title: t("tab.table"),
