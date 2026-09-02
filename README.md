@@ -2,6 +2,9 @@
 
 View, edit and save PowerPoint decks without leaving Obsidian.
 
+**[yut0takagi.github.io/obsidian-pptx-studio](https://yut0takagi.github.io/obsidian-pptx-studio/)** —
+what it does, in English and Japanese.
+
 Obsidian natively opens Markdown, images, audio, video, PDF and canvas — `.pptx`
 is not on that list, so a deck in your vault is invisible in the file explorer
 and cannot be linked to. This plugin registers the extension and renders slides

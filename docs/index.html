@@ -1,0 +1,1085 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PPTX Studio for Obsidian</title>
+<meta name="description" content="Open, edit and save PowerPoint decks inside Obsidian. A PowerPoint-style editing surface, an OOXML inspector, PDF export and slide embeds — with no external converter.">
+<link rel="canonical" href="https://yut0takagi.github.io/obsidian-pptx-studio/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E%F0%9F%93%90%3C/text%3E%3C/svg%3E">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PPTX Studio">
+<meta property="og:title" content="PPTX Studio for Obsidian">
+<meta property="og:description" content="Open, edit and save PowerPoint decks inside Obsidian. A PowerPoint-style editing surface, an OOXML inspector, PDF export and slide embeds — with no external converter.">
+<meta property="og:url" content="https://yut0takagi.github.io/obsidian-pptx-studio/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="PPTX Studio for Obsidian">
+<meta name="twitter:description" content="Open, edit and save PowerPoint decks inside Obsidian. A PowerPoint-style editing surface, an OOXML inspector, PDF export and slide embeds — with no external converter.">
+
+<meta name="theme-color" content="#eceff4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101218" media="(prefers-color-scheme: dark)">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  /* ============================================================
+     PPTX Studio — landing page
+
+     The two accents are the two colours the plugin itself draws on
+     screen: the selection blue it outlines a shape with, and the
+     orange it draws a snapping guide in. Everything else is a cool
+     grey biased toward that blue.
+     ============================================================ */
+
+  :root {
+    --ground: #eceff4;
+    --ground-deep: #e2e6ee;
+    --surface: #ffffff;
+    --slide: #ffffff;
+    --slide-ink: #14161c;
+    --ink: #14161c;
+    --ink-soft: #4d5466;
+    --ink-faint: #78808f;
+    --hairline: #d3d9e4;
+    --hairline-soft: #e3e7ef;
+    --accent: #2f6fed;
+    --accent-soft: rgba(47, 111, 237, 0.1);
+    --signal: #d24a05;
+    --shadow: 0 1px 2px rgba(20, 22, 28, 0.06), 0 12px 32px -12px rgba(20, 22, 28, 0.18);
+    --shadow-lift: 0 2px 4px rgba(20, 22, 28, 0.07), 0 28px 60px -20px rgba(20, 22, 28, 0.26);
+
+    --display: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+    --measure: 34rem;
+    --page: 74rem;
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #101218;
+      --ground-deep: #0b0d12;
+      --surface: #191c24;
+      --slide: #fbfbfd;
+      --slide-ink: #14161c;
+      --ink: #e7e9f0;
+      --ink-soft: #a4abbd;
+      --ink-faint: #7b8296;
+      --hairline: #2b3140;
+      --hairline-soft: #222732;
+      --accent: #6b95f2;
+      --accent-soft: rgba(107, 149, 242, 0.14);
+      --signal: #ff8642;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px -12px rgba(0, 0, 0, 0.7);
+      --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.5), 0 28px 60px -20px rgba(0, 0, 0, 0.8);
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #101218;
+    --ground-deep: #0b0d12;
+    --surface: #191c24;
+    --slide: #fbfbfd;
+    --slide-ink: #14161c;
+    --ink: #e7e9f0;
+    --ink-soft: #a4abbd;
+    --ink-faint: #7b8296;
+    --hairline: #2b3140;
+    --hairline-soft: #222732;
+    --accent: #6b95f2;
+    --accent-soft: rgba(107, 149, 242, 0.14);
+    --signal: #ff8642;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px -12px rgba(0, 0, 0, 0.7);
+    --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.5), 0 28px 60px -20px rgba(0, 0, 0, 0.8);
+    color-scheme: dark;
+  }
+
+  /* ---------------------------------------------- language switch */
+  /* English is the un-stamped default, so the page reads correctly
+     before any script has run. */
+  :root:not([data-lang="ja"]) .ja { display: none; }
+  :root[data-lang="ja"] .en { display: none; }
+  :root[data-lang="ja"] { --body: "Source Serif 4", "Hiragino Mincho ProN", "Yu Mincho", serif; }
+  :root[data-lang="ja"] .prose { line-height: 1.85; }
+
+  * { box-sizing: border-box; }
+  img, svg { max-width: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .ui { font-family: var(--display); font-weight: 600; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.1; letter-spacing: -0.021em; }
+  h1 { font-size: clamp(2.4rem, 5.6vw, 4.25rem); font-weight: 700; }
+  h2 { font-size: clamp(1.6rem, 3vw, 2.3rem); }
+  h3 { font-size: 1.0625rem; letter-spacing: -0.005em; }
+  p { margin: 0; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  .shell { max-width: var(--page); margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 3.5rem); }
+  .prose { max-width: var(--measure); }
+  .stack { display: flex; flex-direction: column; }
+
+  .eyebrow {
+    font-family: var(--display);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  /* ------------------------------------------------------ chrome */
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem clamp(1.25rem, 4vw, 3.5rem);
+    background: color-mix(in srgb, var(--ground) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--hairline-soft);
+  }
+  .wordmark {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 0.9375rem;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .wordmark span.tag {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    font-weight: 400;
+    color: var(--ink-faint);
+    border: 1px solid var(--hairline);
+    border-radius: 2px;
+    padding: 0.05rem 0.3rem;
+  }
+  .topbar .spacer { flex: 1; }
+
+  .langswitch { display: flex; border: 1px solid var(--hairline); border-radius: 3px; overflow: hidden; }
+  .langswitch button {
+    font-family: var(--display);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    padding: 0.3rem 0.55rem;
+    border: 0;
+    background: transparent;
+    color: var(--ink-faint);
+    cursor: pointer;
+  }
+  .langswitch button + button { border-left: 1px solid var(--hairline); }
+  :root:not([data-lang="ja"]) .langswitch button[data-set="en"],
+  :root[data-lang="ja"] .langswitch button[data-set="ja"] {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .btn {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 0.875rem;
+    letter-spacing: -0.005em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.6rem 1.05rem;
+    border-radius: 3px;
+    text-decoration: none;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--accent); color: #fff; box-shadow: var(--shadow); }
+  .btn-primary:hover { background: color-mix(in srgb, var(--accent) 86%, #000); }
+  .btn-quiet { color: var(--ink); border-color: var(--hairline); background: var(--surface); }
+  .btn-quiet:hover { border-color: var(--ink-faint); }
+
+  /* ------------------------------------------------------ rulers */
+  /* The tick strip is the plugin's own ruler: 8px minor, 40px major. */
+
+  .ruler {
+    position: relative;
+    height: 20px;
+    border-bottom: 1px solid var(--hairline);
+    background-image:
+      repeating-linear-gradient(to right, var(--hairline) 0 1px, transparent 1px 40px),
+      repeating-linear-gradient(to right, var(--hairline-soft) 0 1px, transparent 1px 8px);
+    background-position: bottom;
+    background-size: 100% 9px, 100% 5px;
+    background-repeat: no-repeat;
+    flex: none;
+  }
+
+  /* A snapping guide, used where a section changes subject. */
+  .guide {
+    position: relative;
+    height: 1px;
+    background: var(--signal);
+    opacity: 0.65;
+    margin: clamp(3.5rem, 8vw, 6rem) 0 clamp(2rem, 4vw, 3rem);
+  }
+  .guide::after {
+    content: attr(data-at);
+    position: absolute;
+    right: 0;
+    top: 0.4rem;
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    color: var(--signal);
+    letter-spacing: 0.04em;
+  }
+
+  /* ------------------------------------------------------- panels */
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+  }
+
+  /* The hero's mini slide: white in both themes, because that is what
+     a slide is — a white page floating in the workspace. */
+  .slide {
+    background: var(--slide);
+    color: var(--slide-ink);
+    border: 1px solid var(--hairline);
+    border-radius: 3px;
+    box-shadow: var(--shadow-lift);
+  }
+
+  /* --------------------------------------------------------- hero */
+
+  .hero { padding: clamp(3rem, 8vw, 6.5rem) 0 0; }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: clamp(2rem, 5vw, 4.5rem);
+    align-items: start;
+  }
+  @media (max-width: 60rem) {
+    .hero-grid { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .hero-copy { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  /* The headline sits inside real selection chrome: a solid border
+     means the box is held, which is what the plugin draws. */
+  .selected { position: relative; padding: 0.35rem 0.6rem; margin: 0 -0.6rem; }
+  .selected::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid var(--accent);
+    border-radius: 1px;
+    pointer-events: none;
+    animation: chrome 0.5s 0.15s ease-out both;
+  }
+  .handle {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    background: var(--surface);
+    border: 1.5px solid var(--accent);
+    border-radius: 2px;
+    animation: chrome 0.5s 0.35s ease-out both;
+  }
+  .handle.nw { left: -5px; top: -5px; }
+  .handle.n  { left: calc(50% - 4.5px); top: -5px; }
+  .handle.ne { right: -5px; top: -5px; }
+  .handle.e  { right: -5px; top: calc(50% - 4.5px); }
+  .handle.se { right: -5px; bottom: -5px; }
+  .handle.s  { left: calc(50% - 4.5px); bottom: -5px; }
+  .handle.sw { left: -5px; bottom: -5px; }
+  .handle.w  { left: -5px; top: calc(50% - 4.5px); }
+  .knob {
+    position: absolute;
+    left: calc(50% - 4.5px);
+    top: -30px;
+    width: 9px;
+    height: 9px;
+    background: var(--surface);
+    border: 1.5px solid var(--accent);
+    border-radius: 50%;
+    animation: chrome 0.5s 0.45s ease-out both;
+  }
+  .knob::after {
+    content: "";
+    position: absolute;
+    left: 3.5px;
+    top: 8px;
+    width: 1.5px;
+    height: 18px;
+    background: var(--accent);
+  }
+  @keyframes chrome { from { opacity: 0; } to { opacity: 1; } }
+
+  .lede { color: var(--ink-soft); font-size: 1.125rem; }
+  .hero-cta { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+  .cta-note { font-family: var(--mono); font-size: 0.75rem; color: var(--ink-faint); }
+
+  /* ------------------------------------------------- format chips */
+
+  .formats { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+  .chip {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid var(--hairline);
+    border-radius: 2px;
+    color: var(--ink-faint);
+    background: var(--surface);
+  }
+  .chip.absent {
+    color: var(--signal);
+    border-color: var(--signal);
+    border-style: dashed;
+    background: transparent;
+  }
+  .chip.absent.now { border-style: solid; background: color-mix(in srgb, var(--signal) 10%, transparent); }
+
+  /* --------------------------------------------------- xml panel */
+
+  .code {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    line-height: 1.75;
+    overflow-x: auto;
+    padding: 1rem 1.1rem;
+    margin: 0;
+    color: var(--ink-soft);
+    tab-size: 2;
+  }
+  .code .t { color: var(--accent); }
+  .code .a { color: var(--ink-faint); }
+  .code .v { color: var(--signal); }
+  .code .c { color: var(--ink-faint); opacity: 0.75; }
+
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 0.55rem 1.1rem;
+    border-bottom: 1px solid var(--hairline-soft);
+    font-family: var(--display);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .panel-head .path { font-family: var(--mono); font-weight: 400; font-size: 0.6875rem; color: var(--ink-faint); }
+
+  /* ----------------------------------------------------- sections */
+
+  section { padding: 0; }
+  .section-head { display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: clamp(1.75rem, 4vw, 2.75rem); }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr));
+    gap: 1px;
+    background: var(--hairline-soft);
+    border: 1px solid var(--hairline-soft);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .feature { background: var(--surface); padding: 1.35rem 1.4rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .feature .label {
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .feature p { color: var(--ink-soft); font-size: 0.9375rem; line-height: 1.62; }
+  .feature.new .label { color: var(--signal); }
+
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(1.5rem, 4vw, 3rem);
+    align-items: center;
+  }
+  @media (max-width: 58rem) { .split { grid-template-columns: minmax(0, 1fr); } }
+
+  /* --------------------------------------------------- data table */
+
+  .datatable { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .datatable caption {
+    text-align: left;
+    color: var(--ink-faint);
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.04em;
+    padding-bottom: 0.6rem;
+  }
+  .datatable th, .datatable td { text-align: right; padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--hairline-soft); }
+  .datatable th:first-child, .datatable td:first-child { text-align: left; }
+  .datatable thead th {
+    font-family: var(--display);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    border-bottom-color: var(--hairline);
+  }
+  .datatable td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .datatable td.fast { color: var(--accent); }
+  .tablewrap { overflow-x: auto; }
+
+  .propgrid { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 1.1rem; font-size: 0.8125rem; }
+  .propgrid dt { font-family: var(--display); font-weight: 600; color: var(--ink-faint); font-size: 0.75rem; }
+  .propgrid dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .propgrid dd .emu { color: var(--ink-faint); }
+
+  /* ----------------------------------------------------- keyboard */
+
+  kbd {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    padding: 0.1rem 0.35rem;
+    border: 1px solid var(--hairline);
+    border-bottom-width: 2px;
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.5rem 1.75rem; }
+  .keys div { display: flex; gap: 0.6rem; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--hairline-soft); padding-bottom: 0.45rem; }
+  .keys span { color: var(--ink-soft); font-size: 0.875rem; }
+
+  /* -------------------------------------------------------- steps */
+
+  .steps { display: flex; flex-direction: column; gap: 0.9rem; counter-reset: step; }
+  .step { display: grid; grid-template-columns: 1.6rem 1fr; gap: 0.9rem; align-items: baseline; }
+  .step::before {
+    counter-increment: step;
+    content: counter(step);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    border: 1px solid var(--accent-soft);
+    background: var(--accent-soft);
+    border-radius: 2px;
+    text-align: center;
+    padding: 0.1rem 0;
+  }
+  .step p { font-size: 0.9375rem; color: var(--ink-soft); }
+
+  /* ------------------------------------------------------- footer */
+
+  footer {
+    margin-top: clamp(4rem, 9vw, 7rem);
+    border-top: 1px solid var(--hairline);
+    background: var(--ground-deep);
+    padding: 2.25rem 0 3rem;
+  }
+  .footrow { display: flex; flex-wrap: wrap; gap: 1rem 2rem; align-items: baseline; justify-content: space-between; }
+  .footrow p { font-size: 0.8125rem; color: var(--ink-faint); }
+  .footlinks { display: flex; gap: 1.25rem; font-family: var(--display); font-size: 0.8125rem; font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wordmark">PPTX Studio <span class="tag">0.2.0</span></div>
+  <div class="spacer"></div>
+  <div class="langswitch" role="group" aria-label="Language">
+    <button type="button" data-set="en">EN</button>
+    <button type="button" data-set="ja">JA</button>
+  </div>
+</header>
+
+<main>
+  <!-- ================================================== hero -->
+  <section class="hero">
+    <div class="shell hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">
+          <span class="en">Obsidian plugin · reads OOXML directly</span>
+          <span class="ja">Obsidian プラグイン · OOXML を直接読む</span>
+        </p>
+
+        <div class="selected">
+          <h1>
+            <span class="en">Edit a PowerPoint deck without leaving your vault.</span>
+            <span class="ja">PowerPoint のデッキを、vault から出ずに編集する。</span>
+          </h1>
+          <span class="knob" aria-hidden="true"></span>
+          <span class="handle nw" aria-hidden="true"></span>
+          <span class="handle n" aria-hidden="true"></span>
+          <span class="handle ne" aria-hidden="true"></span>
+          <span class="handle e" aria-hidden="true"></span>
+          <span class="handle se" aria-hidden="true"></span>
+          <span class="handle s" aria-hidden="true"></span>
+          <span class="handle sw" aria-hidden="true"></span>
+          <span class="handle w" aria-hidden="true"></span>
+        </div>
+
+        <p class="lede prose">
+          <span class="en">Obsidian opens Markdown, images, audio, video, PDF and canvas. <code>.pptx</code> is not on
+            that list, so a deck sitting in your vault is invisible in the file explorer and cannot be linked to. This
+            plugin registers the extension and renders slides straight from the OOXML — no external converter, nothing
+            to install alongside it.</span>
+          <span class="ja">Obsidian が開けるのは Markdown・画像・音声・動画・PDF・Canvas。<code>.pptx</code>
+            はその一覧に入っていません。だから vault の中のデッキはファイルエクスプローラに現れず、リンクも張れない。このプラグインは拡張子を登録し、OOXML
+            から直接スライドを描画します。外部コンバータは不要で、併せて入れるものもありません。</span>
+        </p>
+
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="https://github.com/yut0takagi/obsidian-pptx-studio">
+            <span class="en">Get PPTX Studio</span><span class="ja">PPTX Studio を入手</span>
+          </a>
+          <a class="btn btn-quiet" href="https://github.com/yut0takagi/obsidian-pptx-studio/releases/latest">
+            <span class="en">Release notes</span><span class="ja">リリースノート</span>
+          </a>
+          <p class="cta-note">
+            <span class="en">Community plugins → Browse → “PPTX Studio”</span>
+            <span class="ja">コミュニティプラグイン → 参照 → 「PPTX Studio」</span>
+          </p>
+        </div>
+
+        <div class="formats" aria-hidden="false">
+          <span class="chip">md</span>
+          <span class="chip">png</span>
+          <span class="chip">mp3</span>
+          <span class="chip">mp4</span>
+          <span class="chip">pdf</span>
+          <span class="chip">canvas</span>
+          <span class="chip absent now">pptx</span>
+        </div>
+      </div>
+
+      <!-- The deck the headline came from, as the file actually stores it. -->
+      <div class="stack" style="gap: 1rem;">
+        <div class="slide">
+          <div class="ruler" aria-hidden="true"></div>
+          <div style="padding: 1.6rem 1.5rem 1.9rem;">
+            <p class="eyebrow" style="color: #78808f;">Q3 review</p>
+            <p style="font-family: var(--display); font-weight: 700; font-size: 1.5rem; line-height: 1.15; letter-spacing: -0.02em; margin: 0.45rem 0 0.9rem; color: var(--slide-ink);">
+              Revenue held while spend fell
+            </p>
+            <svg viewBox="0 0 320 96" width="100%" height="96" role="img"
+                 aria-label="A column chart of four quarters beside a flat trend line.">
+              <g fill="#2f6fed">
+                <rect x="6" y="46" width="30" height="50" rx="1"></rect>
+                <rect x="46" y="34" width="30" height="62" rx="1"></rect>
+                <rect x="86" y="39" width="30" height="57" rx="1"></rect>
+                <rect x="126" y="22" width="30" height="74" rx="1"></rect>
+              </g>
+              <g fill="#d24a05" opacity="0.85">
+                <rect x="176" y="62" width="30" height="34" rx="1"></rect>
+                <rect x="216" y="70" width="30" height="26" rx="1"></rect>
+                <rect x="256" y="76" width="30" height="20" rx="1"></rect>
+                <rect x="296" y="80" width="18" height="16" rx="1"></rect>
+              </g>
+              <path d="M6 40 L156 30 L314 33" fill="none" stroke="#14161c" stroke-width="1.25"
+                    stroke-linecap="round" opacity="0.5"></path>
+            </svg>
+            <p style="font-family: var(--mono); font-size: 0.625rem; color: #78808f; margin-top: 0.7rem;">
+              chart1.xml · drawn as SVG from the cached values
+            </p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="en">The same title, in the file</span><span class="ja">同じタイトルを、ファイル側で見る</span>
+            <span class="path">ppt/slides/slide1.xml</span>
+          </div>
+          <pre class="code"><span class="t">&lt;p:sp&gt;</span>
+  <span class="t">&lt;p:nvSpPr&gt;</span>
+    <span class="t">&lt;p:cNvPr</span> <span class="a">id=</span><span class="v">"7"</span> <span class="a">name=</span><span class="v">"Title 6"</span><span class="t">/&gt;</span>
+    <span class="t">&lt;p:nvPr&gt;&lt;p:ph</span> <span class="a">type=</span><span class="v">"ctrTitle"</span><span class="t">/&gt;&lt;/p:nvPr&gt;</span>
+  <span class="t">&lt;/p:nvSpPr&gt;</span>
+  <span class="t">&lt;p:spPr&gt;&lt;a:xfrm&gt;</span>
+    <span class="t">&lt;a:off</span>  <span class="a">x=</span><span class="v">"838200"</span>   <span class="a">y=</span><span class="v">"365125"</span><span class="t">/&gt;</span>
+    <span class="t">&lt;a:ext</span> <span class="a">cx=</span><span class="v">"10515600"</span> <span class="a">cy=</span><span class="v">"1325563"</span><span class="t">/&gt;</span>
+  <span class="t">&lt;/a:xfrm&gt;&lt;/p:spPr&gt;</span>
+<span class="t">&lt;/p:sp&gt;</span></pre>
+          <div style="border-top: 1px solid var(--hairline-soft); padding: 0.9rem 1.1rem;">
+            <dl class="propgrid">
+              <dt>x</dt><dd>88 px <span class="emu">· 838,200 EMU</span></dd>
+              <dt>y</dt><dd>38.33 px <span class="emu">· 365,125 EMU</span></dd>
+              <dt>w</dt><dd>1,104 px <span class="emu">· 10,515,600 EMU</span></dd>
+              <dt>h</dt><dd>139.17 px <span class="emu">· 1,325,563 EMU</span></dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================== features -->
+  <div class="shell">
+    <div class="guide" data-at="guide · 0"></div>
+    <section>
+      <div class="section-head">
+        <p class="eyebrow"><span class="en">What it does</span><span class="ja">できること</span></p>
+        <h2>
+          <span class="en">A PowerPoint-shaped editor, inside a Markdown app.</span>
+          <span class="ja">Markdown アプリの中に、PowerPoint の形をしたエディタ。</span>
+        </h2>
+        <p class="prose" style="color: var(--ink-soft);">
+          <span class="en">A tabbed ribbon over a slide canvas: multi-select, marquee, drag, resize, rotate, snapping
+            guides, z-order, align and distribute, group and ungroup, and a right-click menu that knows what is
+            selected.</span>
+          <span class="ja">スライドキャンバスの上にタブ付きリボン。複数選択、範囲選択、移動、リサイズ、回転、スナップガイド、重なり順、整列と均等配置、グループ化、そして選択内容を理解する右クリックメニュー。</span>
+        </p>
+      </div>
+
+      <div class="features">
+        <div class="feature">
+          <p class="label">Edit</p>
+          <h3><span class="en">Type straight into a slide</span><span class="ja">スライドに直接入力する</span></h3>
+          <p>
+            <span class="en">Double-click a text box and type. Typing inside a bold word leaves it bold — the runs
+              around your edit are kept intact.</span>
+            <span class="ja">テキストボックスをダブルクリックして入力。太字の単語の内側に打っても太字のまま — 編集箇所の周りのランはそのまま保たれます。</span>
+          </p>
+        </div>
+        <div class="feature">
+          <p class="label">Format</p>
+          <h3><span class="en">Down to the character</span><span class="ja">文字単位まで</span></h3>
+          <p>
+            <span class="en">Font, size, weight, colour, alignment, bullets, list level, line spacing, fill and
+              outline. With text selected it applies to exactly those characters.</span>
+            <span class="ja">フォント、サイズ、太さ、色、配置、箇条書き、リストレベル、行間、塗りと枠線。テキストを選択していれば、その文字だけに適用されます。</span>
+          </p>
+        </div>
+        <div class="feature">
+          <p class="label">Insert</p>
+          <h3><span class="en">Shapes, pictures, tables</span><span class="ja">図形・画像・表</span></h3>
+          <p>
+            <span class="en">Text boxes, twelve shape presets, lines, pictures from the vault, and tables you can merge
+              and split cells in.</span>
+            <span class="ja">テキストボックス、12 種の図形プリセット、線、vault 内の画像、そしてセルの結合と分割ができる表。</span>
+          </p>
+        </div>
+        <div class="feature">
+          <p class="label">Slides</p>
+          <h3><span class="en">Add, duplicate, reorder</span><span class="ja">追加・複製・並べ替え</span></h3>
+          <p>
+            <span class="en">Build a slide from any layout in the deck, duplicate it, drag a thumbnail to move it, set
+              a background colour.</span>
+            <span class="ja">デッキ内の任意のレイアウトからスライドを作り、複製し、サムネイルをドラッグして並べ替え、背景色を設定します。</span>
+          </p>
+        </div>
+        <div class="feature new">
+          <p class="label">New in 0.2.0</p>
+          <h3><span class="en">Find and replace</span><span class="ja">検索と置換</span></h3>
+          <p>
+            <span class="en">Across every slide, not just the one on screen. A phrase split across runs by a change of
+              formatting is still found, and every hit is listed in context.</span>
+            <span class="ja">画面に出ているスライドだけでなく全スライドを対象に。書式変更でランが分断された語句も見つかり、すべての一致が文脈付きで一覧されます。</span>
+          </p>
+        </div>
+        <div class="feature new">
+          <p class="label">New in 0.2.0</p>
+          <h3><span class="en">PDF and printing</span><span class="ja">PDF と印刷</span></h3>
+          <p>
+            <span class="en">The whole deck as a PDF, or straight to the print dialog. The PDF is written directly, so
+              it needs nothing installed either.</span>
+            <span class="ja">デッキ全体を PDF に、あるいはそのまま印刷ダイアログへ。PDF は自前で書き出すので、こちらも別途インストールは不要です。</span>
+          </p>
+        </div>
+        <div class="feature new">
+          <p class="label">New in 0.2.0</p>
+          <h3><span class="en">Transitions and animations</span><span class="ja">画面切り替えとアニメーション</span></h3>
+          <p>
+            <span class="en">A transition per slide, and fade, wipe or fly in as an entrance — on click, with the
+              previous effect, or after it. Written the way PowerPoint writes it.</span>
+            <span class="ja">スライドごとの切り替えと、開始アニメーション（フェード・ワイプ・フライイン）。クリック時、直前と同時、直前の後から選べます。PowerPoint と同じ書き方で保存されます。</span>
+          </p>
+        </div>
+        <div class="feature new">
+          <p class="label">New in 0.2.0</p>
+          <h3><span class="en">Paste a picture</span><span class="ja">画像を貼り付ける</span></h3>
+          <p>
+            <span class="en">An image on the system clipboard drops onto the slide. Where the clipboard offers the same
+              picture several ways, the lossless one is taken.</span>
+            <span class="ja">システムのクリップボードにある画像をそのままスライドへ。同じ画像が複数の形式で提供されている場合は、可逆な方を選びます。</span>
+          </p>
+        </div>
+        <div class="feature">
+          <p class="label">Vault</p>
+          <h3><span class="en">Embed and extract</span><span class="ja">埋め込みと抽出</span></h3>
+          <p>
+            <span class="en"><code>![[deck.pptx]]</code> embeds the deck in a note, <code>![[deck.pptx#3]]</code> pins
+              one slide. Extract to Markdown and the content becomes searchable and linkable.</span>
+            <span class="ja"><code>![[deck.pptx]]</code> でノートに埋め込み、<code>![[deck.pptx#3]]</code>
+              で 1 枚だけ固定。Markdown に抽出すれば、内容が検索でき、リンクも張れるようになります。</span>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================ inspector -->
+    <div class="guide" data-at="guide · 1"></div>
+    <section>
+      <div class="split">
+        <div class="stack" style="gap: 1.1rem;">
+          <p class="eyebrow"><span class="en">The side pane</span><span class="ja">サイドペイン</span></p>
+          <h2>
+            <span class="en">See what the file actually says.</span>
+            <span class="ja">ファイルが実際に何と書いてあるかを見る。</span>
+          </h2>
+          <p class="prose" style="color: var(--ink-soft);">
+            <span class="en">Every shape on the slide in stacking order, and underneath it what the file says about the
+              selected one: its id, the element it is, the part it lives in, its placeholder type, and its frame as both
+              pixels on screen and the raw EMU stored in <code>a:off</code> and <code>a:ext</code>.</span>
+            <span class="ja">スライド上のすべての図形を重なり順で並べ、その下に選択中の図形についてファイルが持つ情報を出します。id、要素の種類、所属パート、プレースホルダ種別、そして枠を画面上のピクセルと
+              <code>a:off</code> / <code>a:ext</code> に格納された生の EMU の両方で。</span>
+          </p>
+          <p class="prose" style="color: var(--ink-soft);">
+            <span class="en">The frame, the rotation and the name are fields, not labels: type over one and press
+              Enter. A length takes pixels, or a number with a unit — <code>emu</code>, <code>pt</code>,
+              <code>in</code>, <code>cm</code>, <code>mm</code> — so a value read out of another file can be pasted in
+              as it stands.</span>
+            <span class="ja">枠・回転・名前はラベルではなく入力欄です。上書きして Enter を押せば反映されます。長さは px、または単位付きの数値（<code>emu</code>,
+              <code>pt</code>, <code>in</code>, <code>cm</code>, <code>mm</code>）で受け付けるので、別のファイルから読んだ値をそのまま貼れます。</span>
+          </p>
+          <p class="prose" style="color: var(--ink-soft);">
+            <span class="en">A shape with no <code>a:xfrm</code> of its own says so, rather than quietly reporting the
+              frame it inherited from the layout.</span>
+            <span class="ja">自分の <code>a:xfrm</code> を持たない図形は、レイアウトから継承した枠を黙って表示するのではなく、持っていないことを明示します。</span>
+          </p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="en">Selection</span><span class="ja">選択</span>
+            <span class="path">3 shapes · slide 4</span>
+          </div>
+          <div style="padding: 0.55rem 0;">
+            <div style="display: flex; align-items: baseline; gap: 0.6rem; padding: 0.3rem 1.1rem; font-family: var(--mono); font-size: 0.75rem; color: var(--ink-faint);">
+              <span style="color: var(--accent);">p:sp</span> Title 6
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 0.6rem; padding: 0.3rem 1.1rem; font-family: var(--mono); font-size: 0.75rem; background: var(--accent-soft);">
+              <span style="color: var(--accent);">p:pic</span> Screenshot 2
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 0.6rem; padding: 0.3rem 1.1rem; font-family: var(--mono); font-size: 0.75rem; color: var(--ink-faint);">
+              <span style="color: var(--accent);">p:graphicFrame</span> Table 9
+            </div>
+          </div>
+          <div style="border-top: 1px solid var(--hairline-soft); padding: 0.95rem 1.1rem;">
+            <dl class="propgrid">
+              <dt>id</dt><dd>2</dd>
+              <dt>element</dt><dd>p:pic</dd>
+              <dt>part</dt><dd style="overflow-wrap: anywhere;">ppt/slides/slide4.xml</dd>
+              <dt>placeholder</dt><dd class="emu">—</dd>
+              <dt>x</dt><dd>256 px <span class="emu">· 2,438,400 EMU</span></dd>
+              <dt>y</dt><dd>144 px <span class="emu">· 1,371,600 EMU</span></dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================ safety -->
+    <div class="guide" data-at="guide · 2"></div>
+    <section>
+      <div class="section-head">
+        <p class="eyebrow"><span class="en">Saving</span><span class="ja">保存</span></p>
+        <h2>
+          <span class="en">Your deck comes back the way you left it.</span>
+          <span class="ja">デッキは、置いたままの姿で戻ってくる。</span>
+        </h2>
+        <p class="prose" style="color: var(--ink-soft);">
+          <span class="en">Editing someone else's .pptx is only worth doing if nothing else in the file moves. Only the
+            slide XML you touched is rewritten; every other part is repacked byte for byte.</span>
+          <span class="ja">他人の .pptx を編集する価値があるのは、ファイルの他の部分が動かない場合だけです。書き換えるのは触ったスライドの XML
+            だけ。それ以外のパートはバイト単位でそのまま再梱包されます。</span>
+        </p>
+      </div>
+
+      <div class="features">
+        <div class="feature">
+          <p class="label">Byte for byte</p>
+          <p>
+            <span class="en">Embedded fonts, and anything this plugin does not model, survive a save untouched because
+              their parts are never re-serialised.</span>
+            <span class="ja">埋め込みフォントや、このプラグインがモデル化していない情報は、パートが再シリアライズされないため保存を経ても無変更で残ります。</span>
+          </p>
+        </div>
+        <div class="feature">
+          <p class="label">A copy, once</p>
+          <p>
+            <span class="en">The first save leaves <code>deck.pptx.bak</code> beside the file. Binary files do not go
+              through Obsidian's file recovery, so that copy is your undo of last resort.</span>
+            <span class="ja">初回保存時に <code>deck.pptx.bak</code> を隣に残します。バイナリファイルは Obsidian
+              のファイル復元を通らないため、この控えが最後の頼みになります。</span>
+          </p>
+        </div>
+        <div class="feature">
+          <p class="label">No silent overwrite</p>
+          <p>
+            <span class="en">If the file changed on disk since you opened it, the save is refused rather than
+              overwriting someone else's work.</span>
+            <span class="ja">開いた後にディスク上のファイルが変わっていた場合、他人の作業を上書きせず、保存を拒否します。</span>
+          </p>
+        </div>
+        <div class="feature">
+          <p class="label">Undo on parts</p>
+          <p>
+            <span class="en">Undo records whole package parts, so one mechanism covers every command. The test suite
+              runs the editor's commands, undoes them, and asserts every part is byte-identical.</span>
+            <span class="ja">Undo はパッケージのパート単位で記録するため、ひとつの仕組みで全コマンドを賄えます。テストは全コマンドを実行して取り消し、各パートがバイト一致することを検証しています。</span>
+          </p>
+        </div>
+        <div class="feature">
+          <p class="label">Templates left alone</p>
+          <p>
+            <span class="en">Text inherited from a layout or master is drawn but not editable — changing it would
+              silently rewrite every slide built on that template.</span>
+            <span class="ja">レイアウトやマスターから継承したテキストは表示しますが編集できません。変更するとそのテンプレートを使う全スライドを黙って書き換えてしまうためです。</span>
+          </p>
+        </div>
+        <div class="feature">
+          <p class="label">Guides, as PowerPoint stores them</p>
+          <p>
+            <span class="en">Drag a guide out of a ruler and it is written into the deck the way PowerPoint writes it,
+              so it shows up there too.</span>
+            <span class="ja">ルーラーから引き出したガイドは PowerPoint と同じ形式でデッキに保存されるので、PowerPoint 側でも表示されます。</span>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================ speed -->
+    <div class="guide" data-at="guide · 3"></div>
+    <section>
+      <div class="split">
+        <div class="stack" style="gap: 1.1rem;">
+          <p class="eyebrow"><span class="en">Why it stays responsive</span><span class="ja">なぜ軽いまま動くのか</span></p>
+          <h2>
+            <span class="en">An edit re-derives one slide, not the deck.</span>
+            <span class="ja">1 回の編集で作り直すのは、デッキではなく 1 枚。</span>
+          </h2>
+          <p class="prose" style="color: var(--ink-soft);">
+            <span class="en">The editor reports which package parts a command changed. A change confined to one slide's
+              part rebuilds that slide alone; only a change reaching the presentation, a layout or a master rebuilds
+              everything. Rendered slides are cached per index and only the edited one is dropped.</span>
+            <span class="ja">エディタは、コマンドがどのパートを変更したかを報告します。1
+              枚のスライドのパートに収まる変更はそのスライドだけを作り直し、プレゼンテーション本体・レイアウト・マスターに及ぶ変更のときだけ全体を作り直します。描画済みのスライドは番号ごとにキャッシュされ、編集した 1
+              枚だけが破棄されます。</span>
+          </p>
+          <p class="prose" style="color: var(--ink-faint); font-size: 0.875rem;">
+            <span class="en">Slides are rendered as absolutely-positioned DOM at the deck's native pixel size and
+              scaled with a CSS transform, so zooming is free and text stays crisp and selectable.</span>
+            <span class="ja">スライドはデッキ本来のピクセルサイズで絶対配置の DOM として描画し、CSS
+              transform で拡縮します。だからズームのコストはゼロで、文字は鮮明かつ選択可能なままです。</span>
+          </p>
+        </div>
+
+        <div class="panel" style="padding: 1.25rem 1.35rem 1.4rem;">
+          <div class="tablewrap">
+            <table class="datatable">
+              <caption>npm run smoke -- --bench</caption>
+              <thead>
+                <tr>
+                  <th scope="col"><span class="en">Deck</span><span class="ja">デッキ</span></th>
+                  <th scope="col"><span class="en">Whole deck</span><span class="ja">全体</span></th>
+                  <th scope="col"><span class="en">One slide</span><span class="ja">1 枚</span></th>
+                  <th scope="col"><span class="en">Render</span><span class="ja">描画</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>21 slides · 702 shapes</td>
+                  <td class="num">30.0 ms</td>
+                  <td class="num fast">0.58 ms</td>
+                  <td class="num">4.5 ms</td>
+                </tr>
+                <tr>
+                  <td>27 slides · 233 shapes</td>
+                  <td class="num">60.6 ms</td>
+                  <td class="num fast">1.67 ms</td>
+                  <td class="num">6.1 ms</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="font-size: 0.8125rem; color: var(--ink-faint); margin-top: 0.9rem;">
+            <span class="en">On the 27-slide deck that is 1.67 ms instead of 60.6, and one slide re-rendering instead
+              of twenty-seven.</span>
+            <span class="ja">27 枚のデッキなら 60.6 ms ではなく 1.67 ms。再描画も 27 枚ではなく 1 枚です。</span>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================ parser -->
+    <div class="guide" data-at="guide · 4"></div>
+    <section>
+      <div class="section-head">
+        <p class="eyebrow"><span class="en">What it understands</span><span class="ja">解釈できるもの</span></p>
+        <h2>
+          <span class="en">The parser covers what real decks actually use.</span>
+          <span class="ja">実際のデッキが本当に使っている範囲を解釈する。</span>
+        </h2>
+      </div>
+      <div class="split">
+        <p class="prose" style="color: var(--ink-soft);">
+          <span class="en">Theme colour schemes and the <code>lumMod</code> / <code>lumOff</code> / <code>tint</code> /
+            <code>shade</code> transforms. Placeholder inheritance from slide to layout to master. List styles and
+            auto-numbered bullets, gradients, images with cropping, tables with merged cells, groups, connectors, and
+            SmartArt — via the plain-shapes fallback drawing PowerPoint stores alongside it.</span>
+          <span class="ja">テーマの配色と <code>lumMod</code> / <code>lumOff</code> / <code>tint</code> /
+            <code>shade</code> の各変換。スライド → レイアウト →
+            マスターへのプレースホルダ継承。リストスタイルと自動採番の箇条書き、グラデーション、トリミング付き画像、セル結合された表、グループ、コネクタ、そして SmartArt（PowerPoint
+            が併せて保存する通常図形のフォールバック描画を使用）。</span>
+        </p>
+        <p class="prose" style="color: var(--ink-soft);">
+          <span class="en">Charts are drawn as SVG — column, bar, stacked and percent-stacked, line, area, pie,
+            doughnut and scatter — from the values every chart part caches alongside its embedded workbook. That cache
+            is what the deck was showing when it was saved, so no spreadsheet has to be opened to plot it. A missing
+            value stays a gap in the line rather than becoming a zero.</span>
+          <span class="ja">グラフは SVG で描画します（縦棒・横棒・積み上げ・100% 積み上げ・折れ線・面・円・ドーナツ・散布図）。各グラフパートが埋め込みブックと一緒にキャッシュしている値を使うので、描画のためにスプレッドシートを開く必要はありません。欠損値は 0
+            にせず、線の途切れとして残します。</span>
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================ install -->
+    <div class="guide" data-at="guide · 5"></div>
+    <section>
+      <div class="split" style="align-items: start;">
+        <div class="stack" style="gap: 1.4rem;">
+          <p class="eyebrow"><span class="en">Install</span><span class="ja">インストール</span></p>
+          <h2><span class="en">Three steps, no setup.</span><span class="ja">3 ステップ、設定なし。</span></h2>
+          <div class="steps">
+            <div class="step">
+              <p>
+                <span class="en">Open <strong>Settings → Community plugins → Browse</strong>.</span>
+                <span class="ja"><strong>設定 → コミュニティプラグイン → 参照</strong> を開きます。</span>
+              </p>
+            </div>
+            <div class="step">
+              <p>
+                <span class="en">Search for <strong>PPTX Studio</strong>, install it, and enable it.</span>
+                <span class="ja"><strong>PPTX Studio</strong> を検索してインストールし、有効にします。</span>
+              </p>
+            </div>
+            <div class="step">
+              <p>
+                <span class="en">Click any <code>.pptx</code> in the file explorer. It opens.</span>
+                <span class="ja">ファイルエクスプローラで <code>.pptx</code> をクリックすれば開きます。</span>
+              </p>
+            </div>
+          </div>
+          <p class="prose" style="color: var(--ink-faint); font-size: 0.875rem;">
+            <span class="en">The interface follows Obsidian's own display language, so a Japanese vault gets a Japanese
+              ribbon with nothing to configure. Desktop and mobile. MIT licensed.</span>
+            <span class="ja">インターフェースは Obsidian
+              の表示言語に従うので、日本語の vault では設定なしで日本語のリボンになります。デスクトップとモバイルの両対応、MIT ライセンスです。</span>
+          </p>
+          <div class="hero-cta">
+            <a class="btn btn-primary" href="https://github.com/yut0takagi/obsidian-pptx-studio">
+              <span class="en">Source on GitHub</span><span class="ja">GitHub のソース</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="panel" style="padding: 1.25rem 1.35rem 1.4rem;">
+          <p class="eyebrow" style="margin-bottom: 0.9rem;">
+            <span class="en">Keyboard</span><span class="ja">キーボード</span>
+          </p>
+          <div class="keys">
+            <div><span class="en">Previous / next slide</span><span class="ja">前後のスライド</span><span><kbd>↑</kbd> <kbd>↓</kbd></span></div>
+            <div><span class="en">Fit to pane</span><span class="ja">ペインに合わせる</span><span><kbd>0</kbd></span></div>
+            <div><span class="en">Speaker notes</span><span class="ja">ノート表示</span><span><kbd>N</kbd></span></div>
+            <div><span class="en">Edit the selected shape</span><span class="ja">選択図形を編集</span><span><kbd>Enter</kbd></span></div>
+            <div><span class="en">Walk the shapes</span><span class="ja">図形を順に選ぶ</span><span><kbd>Tab</kbd></span></div>
+            <div><span class="en">Nudge · 10 px</span><span class="ja">微調整 · 10 px</span><span><kbd>←→↑↓</kbd> <kbd>⇧</kbd></span></div>
+            <div><span class="en">Drag a copy</span><span class="ja">複製をドラッグ</span><span><kbd>Alt</kbd></span></div>
+            <div><span class="en">Ignore snapping</span><span class="ja">スナップを無効化</span><span><kbd>⌘</kbd> / <kbd>Ctrl</kbd></span></div>
+            <div><span class="en">Find and replace</span><span class="ja">検索と置換</span><span><kbd>⌘F</kbd></span></div>
+            <div><span class="en">Save</span><span class="ja">保存</span><span><kbd>⌘S</kbd></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="shell footrow">
+    <p>
+      <span class="en">PPTX Studio 0.2.0 · MIT licensed · not affiliated with Microsoft or Obsidian</span>
+      <span class="ja">PPTX Studio 0.2.0 · MIT ライセンス · Microsoft および Obsidian とは無関係です</span>
+    </p>
+    <nav class="footlinks">
+      <a href="https://github.com/yut0takagi/obsidian-pptx-studio">GitHub</a>
+      <a href="https://github.com/yut0takagi/obsidian-pptx-studio/releases/latest">
+        <span class="en">Releases</span><span class="ja">リリース</span>
+      </a>
+      <a href="https://github.com/yut0takagi/obsidian-pptx-studio/issues">
+        <span class="en">Issues</span><span class="ja">Issue</span>
+      </a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+
+    function apply(lang) {
+      if (lang === "ja") root.setAttribute("data-lang", "ja");
+      else root.setAttribute("data-lang", "en");
+      root.lang = lang === "ja" ? "ja" : "en";
+    }
+
+    var saved = null;
+    try {
+      saved = localStorage.getItem("pptx-studio-lang");
+    } catch (e) {
+      saved = null;
+    }
+    if (saved) apply(saved);
+    else if ((navigator.language || "").toLowerCase().indexOf("ja") === 0) apply("ja");
+
+    document.querySelectorAll(".langswitch button").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var lang = button.getAttribute("data-set");
+        apply(lang);
+        try {
+          localStorage.setItem("pptx-studio-lang", lang);
+        } catch (e) {
+          /* a private window will not remember the choice, which is fine */
+        }
+      });
+    });
+  })();
+</script>
+</body>
+</html>
