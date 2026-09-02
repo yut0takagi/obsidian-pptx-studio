@@ -83,6 +83,9 @@ export async function printDeck(
 		throw new Error("Could not open a print frame.");
 	}
 
+	// The frame is its own realm, so Obsidian's additions to Document — createEl
+	// and the `win` behind it — are not on this document's prototype. The lint
+	// rule that asks for them is right everywhere except here.
 	const style = doc.createElement("style");
 	style.textContent =
 		`@page { size: ${size.width}pt ${size.height}pt; margin: 0; }` +
