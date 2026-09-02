@@ -44,12 +44,17 @@ export function installDom(): void {
 	// Obsidian adds these to elements; the renderer uses them freely.
 	const proto = (dom.window as unknown as { Element: { prototype: Element } }).Element
 		.prototype as Element & Record<string, unknown>;
+	// Obsidian takes a space-separated string as readily as separate arguments;
+	// classList does not, and throws on the space. Splitting here keeps the shim
+	// honest about what the real API accepts.
+	const tokens = (classes: string[]): string[] =>
+		classes.flatMap((cls) => cls.split(/\s+/).filter(Boolean));
 	proto.addClass = function (this: Element, ...classes: string[]) {
-		this.classList.add(...classes);
+		this.classList.add(...tokens(classes));
 		return this;
 	};
 	proto.removeClass = function (this: Element, ...classes: string[]) {
-		this.classList.remove(...classes);
+		this.classList.remove(...tokens(classes));
 		return this;
 	};
 	proto.hasClass = function (this: Element, cls: string) {
@@ -72,19 +77,28 @@ export function installDom(): void {
 		Object.assign(this.style, styles);
 	};
 
+	// Obsidian declares createEl as a generic that narrows the return type to the
+	// element the tag names. The shim answers with a plain HTMLElement, which is
+	// all the renderer asks of it, so the installation goes through the prototype
+	// as a bag of slots rather than pretending to satisfy that signature.
 	const htmlProto = (dom.window as unknown as { HTMLElement: { prototype: HTMLElement } })
-		.HTMLElement.prototype as HTMLElement & Record<string, unknown>;
-	htmlProto.createEl = function (this: HTMLElement, tag: string, options?: { cls?: string; text?: string }) {
+		.HTMLElement.prototype;
+	const htmlSlots = htmlProto as unknown as Record<string, unknown>;
+	htmlSlots.createEl = function (
+		this: HTMLElement,
+		tag: string,
+		options?: { cls?: string; text?: string },
+	) {
 		const child = document.createElement(tag);
 		if (options?.cls) child.addClass(options.cls);
 		if (options?.text !== undefined) child.setText(options.text);
 		this.appendChild(child);
 		return child;
 	};
-	htmlProto.createDiv = function (this: HTMLElement, options?: { cls?: string; text?: string }) {
+	htmlSlots.createDiv = function (this: HTMLElement, options?: { cls?: string; text?: string }) {
 		return this.createEl("div", options);
 	};
-	htmlProto.createSpan = function (this: HTMLElement, options?: { cls?: string; text?: string }) {
+	htmlSlots.createSpan = function (this: HTMLElement, options?: { cls?: string; text?: string }) {
 		return this.createEl("span", options);
 	};
 

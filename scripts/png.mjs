@@ -29,6 +29,12 @@ function chunk(type, data) {
 /**
  * Encode raw RGB pixels as a PNG. Just enough of the format to produce a real
  * image for the fixture deck without pulling in an encoder dependency.
+ *
+ * @param {number} width
+ * @param {number} height
+ * @param {(x: number, y: number) => [number, number, number]} pixelAt
+ *   The colour at a pixel, as 0-255 red, green and blue.
+ * @returns {Buffer} The encoded PNG.
  */
 export function encodePng(width, height, pixelAt) {
 	const raw = Buffer.alloc(height * (width * 3 + 1));

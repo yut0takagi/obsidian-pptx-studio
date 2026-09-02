@@ -558,6 +558,40 @@
 	color: var(--text-faint);
 }
 
+/* Find and replace results. */
+.pptx-find-results {
+	max-height: 18em;
+	overflow-y: auto;
+	margin-top: var(--size-4-2);
+}
+
+.pptx-find-count {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	padding: var(--size-4-1) 0;
+}
+
+.pptx-find-hit {
+	padding: var(--size-4-1) var(--size-4-2);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+}
+
+.pptx-find-hit:hover {
+	background: var(--background-modifier-hover);
+}
+
+.pptx-find-where {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+}
+
+.pptx-find-line {
+	font-size: var(--font-ui-small);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
 /* Marquee and multi-selection outlines. */
 .pptx-marquee {
 	pointer-events: none;

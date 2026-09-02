@@ -1,4 +1,13 @@
-import { App, FuzzySuggestModal, Modal, Setting, SuggestModal, type TFile } from "obsidian";
+import {
+	App,
+	FuzzySuggestModal,
+	Modal,
+	Notice,
+	Setting,
+	SuggestModal,
+	type TFile,
+} from "obsidian";
+import type { TextMatch } from "../edit/findReplace";
 import { t } from "../i18n";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "bmp", "svg", "webp"]);
@@ -142,6 +151,124 @@ export class PromptModal extends Modal {
 	private submit(): void {
 		this.close();
 		this.onSubmit(this.value.trim());
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
+
+export interface FindReplaceHost {
+	search: (query: string, matchCase: boolean) => TextMatch[];
+	/** Returns how many were replaced, which can be fewer than were found. */
+	replaceAll: (query: string, replacement: string, matchCase: boolean) => number;
+	/** Go to a hit: show its slide and select the shape holding it. */
+	reveal: (match: TextMatch) => void;
+}
+
+/** How much of a paragraph to show around a hit. */
+const CONTEXT = 40;
+
+/**
+ * Find and replace across the deck.
+ *
+ * The results are the point: a replace-all over a deck you cannot see is a
+ * leap of faith, so every hit is listed with the words either side of it and
+ * the slide it sits on, and clicking one goes there.
+ */
+export class FindReplaceModal extends Modal {
+	private query = "";
+	private replacement = "";
+	private matchCase = false;
+	private resultsEl: HTMLElement | null = null;
+
+	constructor(
+		app: App,
+		private readonly host: FindReplaceHost,
+	) {
+		super(app);
+	}
+
+	onOpen(): void {
+		this.titleEl.setText(t("modal.findTitle"));
+		const { contentEl } = this;
+
+		const findSetting = new Setting(contentEl).setName(t("modal.find")).addText((text) =>
+			text.setValue(this.query).onChange((value) => {
+				this.query = value;
+			}),
+		);
+		new Setting(contentEl).setName(t("modal.replaceWith")).addText((text) =>
+			text.setValue(this.replacement).onChange((value) => {
+				this.replacement = value;
+			}),
+		);
+		new Setting(contentEl).setName(t("modal.matchCase")).addToggle((toggle) =>
+			toggle.setValue(this.matchCase).onChange((value) => {
+				this.matchCase = value;
+				if (this.query) this.runSearch();
+			}),
+		);
+
+		new Setting(contentEl)
+			.addButton((button) => button.setButtonText(t("modal.findAll")).onClick(() => this.runSearch()))
+			.addButton((button) =>
+				button
+					.setButtonText(t("modal.replaceAll"))
+					.setCta()
+					.onClick(() => this.runReplace()),
+			);
+
+		this.resultsEl = contentEl.createDiv({ cls: "pptx-find-results" });
+
+		const input = findSetting.controlEl.querySelector<HTMLInputElement>("input");
+		input?.addEventListener("keydown", (event) => {
+			if (event.key === "Enter") this.runSearch();
+		});
+		window.setTimeout(() => input?.focus(), 0);
+	}
+
+	private runSearch(): void {
+		const results = this.resultsEl;
+		if (!results) return;
+		results.empty();
+		if (this.query === "") return;
+
+		const matches = this.host.search(this.query, this.matchCase);
+		results.createDiv({
+			cls: "pptx-find-count",
+			text: matches.length === 0 ? t("find.none") : t("find.count", { n: matches.length }),
+		});
+		for (const match of matches) {
+			const row = results.createDiv({ cls: "pptx-find-hit" });
+			row.createDiv({
+				cls: "pptx-find-where",
+				text: `${t("view.slideLabel", { n: match.slideIndex + 1 })} · ${match.shapeName}`,
+			});
+			const line = row.createDiv({ cls: "pptx-find-line" });
+			const from = Math.max(0, match.start - CONTEXT);
+			const to = Math.min(match.text.length, match.start + match.length + CONTEXT);
+			if (from > 0) line.createSpan({ text: "…" });
+			line.createSpan({ text: match.text.slice(from, match.start) });
+			line.createEl("mark", { text: match.text.slice(match.start, match.start + match.length) });
+			line.createSpan({ text: match.text.slice(match.start + match.length, to) });
+			if (to < match.text.length) line.createSpan({ text: "…" });
+			row.addEventListener("click", () => {
+				this.close();
+				this.host.reveal(match);
+			});
+		}
+	}
+
+	private runReplace(): void {
+		if (this.query === "") return;
+		const found = this.host.search(this.query, this.matchCase).length;
+		const replaced = this.host.replaceAll(this.query, this.replacement, this.matchCase);
+		this.close();
+		new Notice(replaced === 0 ? t("find.none") : t("find.replaced", { n: replaced }));
+		// A hit that straddles a line break or a field is reported but not
+		// rewritten, and saying so beats leaving the count unexplained.
+		if (found > replaced) new Notice(t("find.skipped", { n: found - replaced }));
 	}
 
 	onClose(): void {

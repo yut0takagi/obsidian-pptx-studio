@@ -43,6 +43,7 @@ import { InspectorPane } from "../ui/InspectorPane";
 import { PaneSplitter } from "../ui/PaneSplitter";
 import { SelectionPane } from "../ui/SelectionPane";
 import {
+	FindReplaceModal,
 	ImagePickerModal,
 	LayoutPickerModal,
 	PromptModal,
@@ -52,6 +53,8 @@ import {
 import { type RibbonHost, buildTabs } from "../ui/tabs";
 import { t } from "../i18n";
 import type PptxStudioPlugin from "../main";
+import { chooseImage, clipboardImageName } from "../edit/clipboardImage";
+import { findMatches, replaceAll } from "../edit/findReplace";
 
 export const VIEW_TYPE_PPTX = "pptx-studio";
 
@@ -264,6 +267,7 @@ export class PptxView extends FileView {
 		});
 		this.createViewer(1);
 		this.contentEl.addEventListener("keydown", this.onKeyDown, { capture: true });
+		this.contentEl.addEventListener("paste", this.onPaste, { capture: true });
 		this.viewer?.focus();
 		this.scheduleUi();
 	}
@@ -598,6 +602,7 @@ export class PptxView extends FileView {
 			pickTable: () => this.pickTable(),
 			pickLayout: () => this.pickLayout(),
 			pickHyperlink: () => this.pickHyperlink(),
+			findReplace: () => this.openFindReplace(),
 			tableSelection: this.tableSelection,
 			slideBackground: () => {
 				const ctx = this.context();
@@ -605,6 +610,12 @@ export class PptxView extends FileView {
 				return background?.kind === "solid" ? background.color : null;
 			},
 			exportPng: () => void this.exportCurrentSlide(),
+			exportPdf: () => {
+				if (this.loaded) void this.plugin.exportDeckPdf(this.loaded, this.file);
+			},
+			printDeck: () => {
+				if (this.loaded) void this.plugin.printDeck(this.loaded);
+			},
 			extractMarkdown: () => {
 				if (this.loaded) void this.plugin.extractMarkdown(this.loaded, this.file);
 			},
@@ -647,6 +658,33 @@ export class PptxView extends FileView {
 					new Notice(t("notice.imageFailed", { message: (error as Error).message }), 8000);
 				}
 			})();
+		}).open();
+	}
+
+	/**
+	 * Find and replace over the whole deck.
+	 *
+	 * The search reads every slide's XML, not just the one on screen, so a hit
+	 * on slide 30 is found without rendering slides 2 to 29.
+	 */
+	private openFindReplace(): void {
+		const loaded = this.loaded;
+		if (!loaded) return;
+		new FindReplaceModal(this.app, {
+			search: (query, matchCase) => findMatches(loaded.deck, query, { matchCase }),
+			replaceAll: (query, replacement, matchCase) => {
+				const ctx = this.context();
+				if (!ctx) return 0;
+				const count = replaceAll(ctx, query, replacement, { matchCase }, t("modal.replaceAll"));
+				if (count > 0) this.scheduleUi();
+				return count;
+			},
+			reveal: (match) => {
+				this.viewer?.go(match.slideIndex);
+				this.selection.set(match.slideIndex, [match.shapeId]);
+				this.viewer?.focus();
+				this.scheduleUi();
+			},
 		}).open();
 	}
 
@@ -757,6 +795,41 @@ export class PptxView extends FileView {
 
 	// ----------------------------------------------------------- shortcuts
 
+	/**
+	 * An image pasted from outside Obsidian.
+	 *
+	 * The internal clipboard — shapes copied from a slide — is handled by
+	 * Cmd/Ctrl+V, so this only takes over when the system clipboard is carrying
+	 * a picture, and never while a caret is in a text box, where a paste
+	 * belongs to the text.
+	 */
+	private onPaste = (event: ClipboardEvent): void => {
+		if (this.editController?.isEditing || !this.loaded) return;
+		const chosen = chooseImage(Array.from(event.clipboardData?.files ?? []));
+		if (!chosen) return;
+		event.preventDefault();
+		event.stopPropagation();
+		void this.insertClipboardImage(chosen.file, chosen.extension);
+	};
+
+	private async insertClipboardImage(file: File, extension: string): Promise<void> {
+		try {
+			const bytes = new Uint8Array(await file.arrayBuffer());
+			const size = await imageDimensions(bytes, file.type);
+			this.run((ctx) =>
+				insertPicture(ctx, {
+					bytes,
+					extension,
+					name: clipboardImageName(file.name, extension),
+					width: size?.width,
+					height: size?.height,
+				}),
+			);
+		} catch (error) {
+			new Notice(t("notice.imageFailed", { message: (error as Error).message }), 8000);
+		}
+	}
+
 	private onKeyDown = (event: KeyboardEvent): void => {
 		if (!(event.metaKey || event.ctrlKey)) return;
 		const key = event.key.toLowerCase();
@@ -781,6 +854,7 @@ export class PptxView extends FileView {
 				this.shapeEditor?.selectAll();
 				this.scheduleUi();
 			},
+			f: () => this.openFindReplace(),
 		};
 		const handler = handlers[key];
 		if (!handler) return;
@@ -848,6 +922,7 @@ export class PptxView extends FileView {
 		if (this.uiFrame) window.cancelAnimationFrame(this.uiFrame);
 		this.uiFrame = 0;
 		this.contentEl.removeEventListener("keydown", this.onKeyDown, { capture: true });
+		this.contentEl.removeEventListener("paste", this.onPaste, { capture: true });
 		this.selectionPane?.destroy();
 		this.selectionPane = null;
 		this.sideSplitter?.destroy();

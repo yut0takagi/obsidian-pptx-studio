@@ -10,13 +10,15 @@ alongside it.
 
 ## Install
 
-Not in the community plugin browser yet. Either install it with
-[BRAT](https://github.com/TfTHacker/obsidian42-brat) by pointing it at
+Settings → Community plugins → Browse, search for **PPTX Studio**, then install
+and enable it.
+
+To run a build that has not been released yet, point
+[BRAT](https://github.com/TfTHacker/obsidian42-brat) at
 `yut0takagi/obsidian-pptx-studio`, or do it by hand: download `main.js`,
 `manifest.json` and `styles.css` from the
 [latest release](https://github.com/yut0takagi/obsidian-pptx-studio/releases/latest)
-into `<vault>/.obsidian/plugins/pptx-studio/`, then enable **PPTX Studio** under
-Settings → Community plugins.
+into `<vault>/.obsidian/plugins/pptx-studio/`.
 
 ## Features
 
@@ -50,11 +52,25 @@ Settings → Community plugins.
   select, rename, hide, restack. For the shapes direct manipulation cannot reach.
 - **Also** — hyperlinks, format painter, change a shape's preset, rotate and flip
   by 90°, and numeric position, size and rotation fields.
+- **Find and replace** — across the whole deck, not just the slide on screen.
+  Every hit is listed with the words either side of it and the slide it is on,
+  and clicking one goes there. A phrase split across runs by a change of
+  formatting is still found, and the replacement keeps the first run's
+  formatting.
+- **Paste a picture** — an image on the system clipboard drops straight onto the
+  slide. Where the clipboard offers the same picture several ways, the lossless
+  one is taken.
+- **Transitions and animations** — a transition per slide, and fade, wipe or fly
+  in as an entrance on any shape, starting on click, with the previous effect or
+  after it. The order can be rearranged. An effect written by PowerPoint that
+  this plugin does not model is listed but left alone rather than rewritten.
 - **Embed slides in notes** — `![[deck.pptx]]` embeds the deck, `![[deck.pptx#3]]`
   pins a single slide.
 - **Extract to Markdown** — turn a deck into an outline note so its content is
   searchable, linkable and shows up in backlinks.
-- **Export slides as PNG** — at 1×, 2× or 3×.
+- **Export** — a slide as PNG at 1×, 2× or 3×, the whole deck as a PDF, or
+  straight to the print dialog. The PDF is written directly rather than through
+  a converter, so it needs nothing installed either.
 
 ## Language
 
@@ -141,6 +157,7 @@ which simply selects it.
 | `Cmd`/`Ctrl` while dragging | ignore snapping |
 | `Tab` / `Shift`+`Tab` while editing text | change the list level |
 | `Cmd`/`Ctrl` + `Z` / `Shift+Z` | undo / redo |
+| `Cmd`/`Ctrl` + `F` | find and replace |
 | `Cmd`/`Ctrl` + `S` | save |
 
 ## How rendering works
@@ -170,6 +187,12 @@ the numbers behind a chart are what someone would want to search for later.
 
 Text and shapes inherited from a layout or master are drawn but not editable —
 changing them would silently rewrite every slide built on that template.
+
+Animations are written as the tree PowerPoint itself emits, because a timing
+tree that merely satisfies the schema is one PowerPoint refuses to open. A
+sequence holding an effect this plugin cannot write back is read and can be
+removed, but is never rebuilt — reordering it would mean dropping the effect it
+does not understand.
 
 Editing a run keeps the runs around it intact, so typing inside a bold word
 leaves it bold. Only restructuring a paragraph — merging runs, deleting across

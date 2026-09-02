@@ -44,6 +44,7 @@ import {
 	splitTableCells,
 } from "../edit/tableCommands";
 import { insertAutoShape, insertLine, insertTextBox } from "../edit/insertCommands";
+import { buildAnimationTab } from "./animationTab";
 import {
 	canDeleteSlide,
 	deleteCurrentSlide,
@@ -75,6 +76,7 @@ export interface RibbonHost {
 	canUndo: () => boolean;
 	canRedo: () => boolean;
 	selectAll: () => void;
+	findReplace: () => void;
 	pickImage: () => void;
 	pickTable: () => void;
 	pickLayout: () => void;
@@ -93,6 +95,8 @@ export interface RibbonHost {
 	tableSelection: TableSelection;
 	slideBackground: () => string | null;
 	exportPng: () => void;
+	exportPdf: () => void;
+	printDeck: () => void;
 	extractMarkdown: () => void;
 	openExternally: () => void;
 }
@@ -562,6 +566,13 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 						},
 						{
 							kind: "button",
+							icon: "search",
+							tooltip: t("cmd.find"),
+							isEnabled: host.canEdit,
+							onClick: host.findReplace,
+						},
+						{
+							kind: "button",
 							icon: "trash",
 							tooltip: t("cmd.delete"),
 							isEnabled: () => host.canEdit() && hasSelection(),
@@ -736,6 +747,7 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 				{ title: t("group.slides"), items: slideItems },
 			],
 		},
+		buildAnimationTab(host),
 		{
 			id: "table",
 			title: t("tab.table"),
@@ -894,6 +906,20 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 							label: t("cmd.exportPng"),
 							tooltip: t("cmd.exportPngTooltip"),
 							onClick: host.exportPng,
+						},
+						{
+							kind: "button",
+							icon: "file-down",
+							label: t("cmd.exportPdf"),
+							tooltip: t("cmd.exportPdfTooltip"),
+							onClick: host.exportPdf,
+						},
+						{
+							kind: "button",
+							icon: "printer",
+							label: t("cmd.print"),
+							tooltip: t("cmd.printTooltip"),
+							onClick: host.printDeck,
 						},
 						{
 							kind: "button",
