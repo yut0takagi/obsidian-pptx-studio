@@ -13,6 +13,15 @@ updates:
     groups:
       toolchain:
         dependency-type: development
+    ignore:
+      # TypeScript 7 is held back until typescript-eslint supports it. Its peer
+      # range is >=4.8.4 <6.1.0, so a bump to 7 makes `npm ci` fail to resolve
+      # and stops eslint from starting at all. That is how #14 landed on a red
+      # main and left it there for two weeks. Drop this entry once
+      # https://github.com/typescript-eslint/typescript-eslint/issues/10940
+      # closes; minor and patch releases still come through.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   # The workflows pin actions to commit SHAs, which is exactly the case where
   # nothing gets updated unless something is watching.
