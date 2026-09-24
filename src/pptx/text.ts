@@ -104,6 +104,10 @@ function parseParagraph(
 		}
 	}
 
+	// A paragraph with no runs at all, and one whose runs are all empty, are the
+	// same thing on screen: blank. PowerPoint draws no bullet against either.
+	const isEmpty = runs.every((run) => run.text === "");
+
 	if (runs.length === 0) {
 		// Keep empty paragraphs: they are how decks create vertical spacing. Size
 		// them from a:endParaRPr so the gap matches PowerPoint's.
@@ -111,7 +115,12 @@ function parseParagraph(
 		runs.push({ ...endStyle, text: "", source: null });
 	}
 
-	const bullet = parseBullet(propSources, ctx, level, runs[0], counters);
+	// An empty paragraph inherits the master's a:buChar like any other, so
+	// parsing it would leave a bullet with nothing beside it — a stray dot in
+	// the whitespace decks use for spacing. Skip it, and leave the numbering
+	// where it was: a blank line between two list items must not consume an
+	// ordinal.
+	const bullet = isEmpty ? null : parseBullet(propSources, ctx, level, runs[0], counters);
 
 	return {
 		source: p,
