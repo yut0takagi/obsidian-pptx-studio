@@ -210,13 +210,20 @@ function renderTextBody(body: TextBody): HTMLElement {
 		box.setCssStyles({ writingMode: "vertical-rl", transform: "rotate(180deg)" });
 	}
 
+	// A shape that carries an empty a:txBody — the decoration a deck is full of,
+	// a rule four pixels tall — still gets a run, with whatever size the style
+	// chain hands down, and a line box that tall with it. Nothing is drawn, but
+	// the height pushes the shape's contents around. Collapse the line for those,
+	// and leave the paragraph in place so the shape stays somewhere to type.
+	const blank = body.paragraphs.every((para) => para.runs.every((run) => run.text === ""));
+
 	for (const para of body.paragraphs) {
-		box.appendChild(renderParagraph(para, body));
+		box.appendChild(renderParagraph(para, body, blank));
 	}
 	return box;
 }
 
-function renderParagraph(para: Paragraph, body: TextBody): HTMLElement {
+function renderParagraph(para: Paragraph, body: TextBody, blank = false): HTMLElement {
 	const scale = body.fontScale;
 	const el = createDiv();
 	el.addClass("pptx-para");
@@ -228,7 +235,11 @@ function renderParagraph(para: Paragraph, body: TextBody): HTMLElement {
 	});
 
 	const spacing = para.lineSpacing;
-	if (spacing !== null) {
+	if (blank) {
+		// Nothing to show, so take up nothing. The margins go too: they are
+		// spacing between paragraphs that are not there.
+		el.setCssStyles({ lineHeight: "0", marginTop: "0", marginBottom: "0" });
+	} else if (spacing !== null) {
 		el.setCssStyles({
 			lineHeight:
 				spacing < 0
