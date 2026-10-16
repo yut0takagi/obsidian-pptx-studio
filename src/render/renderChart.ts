@@ -1,4 +1,5 @@
 import type { ChartGroup, ChartKind, ChartModel, ChartSeries } from "../pptx/chart";
+import { t } from "../i18n";
 import type { ChartShape } from "../pptx/types";
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -43,7 +44,7 @@ export function renderChart(shape: ChartShape): SVGElement {
 	}
 
 	if (chart.empty || chart.series.length === 0) {
-		text(svg, width / 2, height / 2, chart.title || "Chart", {
+		text(svg, width / 2, height / 2, chart.tooLarge ? t("chart.tooLarge") : chart.title || "Chart", {
 			size: font,
 			anchor: "middle",
 			fill: FAINT_TEXT,

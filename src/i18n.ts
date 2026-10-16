@@ -316,6 +316,7 @@ const EN = {
 	"embed.loading": "Loading {name}…",
 	"embed.failed": "Could not render {name}: {message}",
 	"embed.slideMissing": "This slide is no longer in {name}. It may have been deleted, or the link is from another deck.",
+	"chart.tooLarge": "Too many data points to draw this chart",
 	"render.unsupportedImage": "Unsupported image format",
 
 	// --- plugin commands
@@ -678,6 +679,7 @@ const JA: Record<StringKey, string> = {
 	"embed.loading": "{name} を読み込み中…",
 	"embed.failed": "{name} を表示できませんでした: {message}",
 	"embed.slideMissing": "{name} にこのスライドがありません。削除されたか、別のデッキのリンクです。",
+	"chart.tooLarge": "データ点が多すぎるため、このグラフは表示できません",
 	"render.unsupportedImage": "未対応の画像形式です",
 
 	"palette.save": "デッキを保存",
