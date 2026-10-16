@@ -163,7 +163,8 @@ export class Presenter {
 			incoming.addClass("pptx-presenter-end");
 			incoming.createDiv({ cls: "pptx-presenter-end-text", text: t("present.end") });
 		} else {
-			const slideEl = renderSlide(this.options.deck, this.options.deck.slides[index]);
+			// No links in a show: a click on the slide is "next", never "open".
+			const slideEl = renderSlide(this.options.deck, this.options.deck.slides[index], { links: false });
 			slideEl.setCssStyles({ transform: `scale(${this.scale})` });
 			incoming.appendChild(slideEl);
 		}
@@ -295,6 +296,7 @@ export class Presenter {
 	 */
 	private onClick = (event: MouseEvent): void => {
 		if (this.controls.contains(event.target as Node)) return;
+		event.preventDefault();
 		const touch = (event as PointerEvent).pointerType === "touch";
 		const width = this.element.clientWidth;
 		if (touch && width > 0 && event.clientX < width / 3) this.previous();

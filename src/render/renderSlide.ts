@@ -1,4 +1,5 @@
 import { geometryCss } from "../pptx/geometry";
+import { safeHref } from "./links";
 import { renderChart } from "./renderChart";
 import { t } from "../i18n";
 import type {
@@ -38,6 +39,11 @@ export const shapeRegistry = new WeakMap<HTMLElement, Shape>();
 export interface RenderOptions {
 	/** Draw a subtle border around the slide. */
 	border?: boolean;
+	/**
+	 * Draw hyperlinks as links. Off during a slide show, where a click on the
+	 * slide means "next" and must not also follow a link in the text.
+	 */
+	links?: boolean;
 }
 
 /**
@@ -49,6 +55,9 @@ export interface RenderOptions {
  * safe and keeps an extra parameter out of every render function.
  */
 let editablePart: string | null = null;
+
+/** Whether the current render draws hyperlinks as links; set per render, like `editablePart`. */
+let linksEnabled = true;
 
 /**
  * Render one slide at its native pixel size. Callers scale the result with a CSS
@@ -70,6 +79,7 @@ export function renderSlide(deck: Deck, slide: Slide, options: RenderOptions = {
 	applyFill(root, slide.background ?? { kind: "solid", color: "#ffffff" });
 
 	editablePart = slide.partPath;
+	linksEnabled = options.links ?? true;
 	try {
 		for (const shape of slide.shapes) {
 			const el = renderShape(shape);
@@ -85,6 +95,7 @@ export function renderSlide(deck: Deck, slide: Slide, options: RenderOptions = {
 		}
 	} finally {
 		editablePart = null;
+		linksEnabled = true;
 	}
 	return root;
 }
@@ -293,11 +304,12 @@ function renderParagraph(para: Paragraph, body: TextBody, blank = false): HTMLEl
 }
 
 function renderRun(run: Run, scale: number, index: number): HTMLElement {
-	const el = createEl(run.link ? "a" : "span");
+	const href = linksEnabled ? safeHref(run.link) : null;
+	const el = createEl(href ? "a" : "span");
 	el.dataset.run = String(index);
 	runRegistry.set(el, run);
-	if (run.link && el.instanceOf(HTMLAnchorElement)) {
-		el.href = run.link;
+	if (href && el.instanceOf(HTMLAnchorElement)) {
+		el.href = href;
 		el.target = "_blank";
 		el.rel = "noopener";
 	}
