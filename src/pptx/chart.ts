@@ -34,13 +34,31 @@ export interface ChartSeries {
 	pointColors: (string | null)[];
 }
 
+/**
+ * One chart type within the plot area. Most charts have exactly one; a
+ * combination chart — columns with a line over them — has one per type.
+ */
+export interface ChartGroup {
+	kind: ChartKind;
+	stacked: boolean;
+	percentStacked: boolean;
+	/** Plotted against the second value axis, which is drawn on the right. */
+	secondary: boolean;
+	/** Indices into `ChartModel.series`. */
+	series: number[];
+}
+
 export interface ChartModel {
+	/** The first group's type, which is what decides the chart's overall layout. */
 	kind: ChartKind;
 	title: string;
 	categories: string[];
+	/** Every series in the chart, across all its groups, in plot-area order. */
 	series: ChartSeries[];
+	/** The first group's stacking, as `kind` is the first group's type. */
 	stacked: boolean;
 	percentStacked: boolean;
+	groups: ChartGroup[];
 	legend: "none" | "b" | "t" | "l" | "r";
 	/** Doughnut hole as a fraction of the radius. */
 	holeSize: number;
@@ -81,6 +99,7 @@ export function emptyChart(): ChartModel {
 		series: [],
 		stacked: false,
 		percentStacked: false,
+		groups: [],
 		legend: "b",
 		holeSize: 0.5,
 		categoryAxisTitle: "",
@@ -101,41 +120,54 @@ export function parseChartPart(
 	const plotArea = child(chart, "plotArea");
 	if (!plotArea) return emptyChart();
 
-	let kind: ChartKind = "unknown";
-	let plot: Element | null = null;
+	// Each chart type in the plot area is a group of its own; a combination
+	// chart is just more than one of them.
+	const plots: { el: Element; kind: ChartKind }[] = [];
 	for (let n = plotArea.firstElementChild; n; n = n.nextElementSibling) {
 		const mapped = KIND_BY_ELEMENT[n.localName];
-		if (mapped) {
-			kind = mapped;
-			plot = n;
-			break;
-		}
+		if (!mapped) continue;
+		// A bar chart is drawn horizontally or vertically depending on c:barDir.
+		const kind = mapped === "column" && attr(child(n, "barDir"), "val") === "bar" ? "bar" : mapped;
+		plots.push({ el: n, kind });
 	}
-	if (!plot) return emptyChart();
+	if (plots.length === 0) return emptyChart();
+	const plot = plots[0].el;
 
-	// A bar chart is drawn horizontally or vertically depending on c:barDir.
-	if (kind === "column" && attr(child(plot, "barDir"), "val") === "bar") kind = "bar";
+	const valueAxes = new Set(
+		children(plotArea, "valAx")
+			.map((ax) => attr(child(ax, "axId"), "val"))
+			.filter((id): id is string => id !== null),
+	);
+	const primaryAxis = valueAxisOf(plot, valueAxes);
 
-	const grouping = attr(child(plot, "grouping"), "val") ?? "clustered";
-	const stacked = grouping === "stacked" || grouping === "percentStacked";
-	const percentStacked = grouping === "percentStacked";
-
-	const seriesEls = children(plot, "ser");
 	const categories: string[] = [];
 	const series: ChartSeries[] = [];
+	const groups: ChartGroup[] = [];
 
-	for (const ser of seriesEls) {
-		const values = readNumbers(child(ser, "val") ?? child(ser, "yVal"));
-		const cats = readStrings(child(ser, "cat") ?? child(ser, "xVal"));
-		for (let i = 0; i < cats.length; i++) {
-			if (cats[i] !== undefined && categories[i] === undefined) categories[i] = cats[i];
+	for (const { el, kind } of plots) {
+		const grouping = attr(child(el, "grouping"), "val") ?? "clustered";
+		const group: ChartGroup = {
+			kind,
+			stacked: grouping === "stacked" || grouping === "percentStacked",
+			percentStacked: grouping === "percentStacked",
+			secondary: primaryAxis !== null && valueAxisOf(el, valueAxes) !== primaryAxis,
+			series: [],
+		};
+		for (const ser of children(el, "ser")) {
+			const values = readNumbers(child(ser, "val") ?? child(ser, "yVal"));
+			const cats = readStrings(child(ser, "cat") ?? child(ser, "xVal"));
+			for (let i = 0; i < cats.length; i++) {
+				if (cats[i] !== undefined && categories[i] === undefined) categories[i] = cats[i];
+			}
+			group.series.push(series.length);
+			series.push({
+				name: seriesName(ser, series.length),
+				values,
+				color: resolveFillColor(child(child(ser, "spPr"), "solidFill"), colorContext(ctx)),
+				pointColors: readPointColors(ser, ctx),
+			});
 		}
-		series.push({
-			name: seriesName(ser, series.length),
-			values,
-			color: resolveFillColor(child(child(ser, "spPr"), "solidFill"), colorContext(ctx)),
-			pointColors: readPointColors(ser, ctx),
-		});
+		groups.push(group);
 	}
 
 	// Categories are optional; fall back to 1..n so a chart still has an axis.
@@ -148,12 +180,13 @@ export function parseChartPart(
 	const hasLegend = child(chart, "legend") !== null;
 
 	return {
-		kind,
+		kind: groups[0].kind,
 		title: readTitle(child(chart, "title")),
 		categories: categories.slice(0, length),
 		series,
-		stacked,
-		percentStacked,
+		stacked: groups[0].stacked,
+		percentStacked: groups[0].percentStacked,
+		groups,
 		legend: hasLegend ? normaliseLegend(legendPos) : "none",
 		holeSize: (numAttr(child(plot, "holeSize"), "val") ?? 50) / 100,
 		categoryAxisTitle: readTitle(child(findAxis(plotArea, "catAx", "dateAx"), "title")),
@@ -161,6 +194,19 @@ export function parseChartPart(
 		empty: series.length === 0,
 		palette: accentPalette(ctx),
 	};
+}
+
+/**
+ * The value axis a group plots against: the last of its c:axId that names a
+ * c:valAx. A column or line group lists its category axis first; a scatter
+ * group lists its x axis first, which is a value axis too, so taking the last
+ * one finds the y axis in both.
+ */
+function valueAxisOf(plot: Element, valueAxes: Set<string>): string | null {
+	const ids = children(plot, "axId")
+		.map((el) => attr(el, "val"))
+		.filter((id): id is string => id !== null && valueAxes.has(id));
+	return ids[ids.length - 1] ?? null;
 }
 
 function accentPalette(ctx: ParseContext): string[] {
