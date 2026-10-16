@@ -535,11 +535,15 @@ export class PptxView extends FileView {
 		const slide = this.loaded?.deck.slides[index];
 		if (!file || !slide) return;
 		const link = slideEmbedLink(this.app.metadataCache.fileToLinktext(file, ""), slide);
-		navigator.clipboard.writeText(link).then(
-			() => new Notice(t("notice.linkCopied", { link })),
-			(error: unknown) =>
-				new Notice(t("notice.copyFailed", { message: (error as Error)?.message ?? String(error) })),
-		);
+		// Where there is no clipboard API the call throws rather than rejecting;
+		// starting from a resolved promise sends both to the same notice.
+		void Promise.resolve()
+			.then(() => navigator.clipboard.writeText(link))
+			.then(
+				() => new Notice(t("notice.linkCopied", { link })),
+				(error: unknown) =>
+					new Notice(t("notice.copyFailed", { message: (error as Error)?.message ?? String(error) })),
+			);
 	}
 
 	// ------------------------------------------------------------ presenting
