@@ -66,6 +66,7 @@ const EN = {
 	"group.zoom": "Zoom",
 	"group.show": "Show",
 	"group.export": "Export",
+	"group.slideShow": "Slide show",
 
 	// --- commands
 	"cmd.undo": "Undo (Cmd/Ctrl+Z)",
@@ -231,6 +232,12 @@ const EN = {
 	"cmd.exportPdfTooltip": "Export every slide as a PDF",
 	"cmd.print": "Print",
 	"cmd.printTooltip": "Print the deck, or save it as a PDF from the print dialog",
+	"cmd.present": "Present from this slide",
+	"cmd.presentFromStart": "From beginning",
+	"cmd.presentFromStartTooltip": "Start the slide show from the first slide",
+	"cmd.presentFromCurrent": "From current slide",
+	"cmd.presentFromCurrentTooltip": "Start the slide show from the slide on screen",
+	"cmd.copyEmbedLink": "Copy embed link",
 	"cmd.exportMarkdown": "Markdown",
 	"cmd.exportMarkdownTooltip": "Extract the deck's text to a note",
 
@@ -291,6 +298,8 @@ const EN = {
 	"notice.saveFailed": "Could not save: {message}",
 	"notice.editFailed": "That edit failed: {message}",
 	"notice.noLayouts": "This deck has no slide layouts to choose from.",
+	"notice.linkCopied": "Copied {link}",
+	"notice.copyFailed": "Could not copy the link: {message}",
 	"notice.imageFailed": "Could not insert the image: {message}",
 	"notice.exported": "Exported {path}",
 	"notice.exportFailed": "Could not export the slide: {message}",
@@ -314,6 +323,8 @@ const EN = {
 	"palette.exportPng": "Export current slide as PNG",
 	"palette.extract": "Extract deck text to a Markdown note",
 	"palette.openExternally": "Open deck in the default app",
+	"palette.presentFromStart": "Start slide show from the beginning",
+	"palette.presentFromCurrent": "Start slide show from the current slide",
 
 	// --- settings
 	"settings.viewer": "Viewer",
@@ -421,6 +432,7 @@ const JA: Record<StringKey, string> = {
 	"group.zoom": "ズーム",
 	"group.show": "表示",
 	"group.export": "書き出し",
+	"group.slideShow": "スライドショー",
 
 	"cmd.undo": "元に戻す (Cmd/Ctrl+Z)",
 	"cmd.redo": "やり直し (Cmd/Ctrl+Shift+Z)",
@@ -585,6 +597,12 @@ const JA: Record<StringKey, string> = {
 	"cmd.exportPdfTooltip": "すべてのスライドを PDF で書き出す",
 	"cmd.print": "印刷",
 	"cmd.printTooltip": "デッキを印刷する（印刷ダイアログから PDF 保存も可能）",
+	"cmd.present": "このスライドから発表",
+	"cmd.presentFromStart": "最初から",
+	"cmd.presentFromStartTooltip": "最初のスライドからスライドショーを始める",
+	"cmd.presentFromCurrent": "現在のスライドから",
+	"cmd.presentFromCurrentTooltip": "表示中のスライドからスライドショーを始める",
+	"cmd.copyEmbedLink": "埋め込みリンクをコピー",
 	"cmd.exportMarkdown": "Markdown",
 	"cmd.exportMarkdownTooltip": "デッキの文字をノートに抽出する",
 
@@ -643,6 +661,8 @@ const JA: Record<StringKey, string> = {
 	"notice.saveFailed": "保存できませんでした: {message}",
 	"notice.editFailed": "編集に失敗しました: {message}",
 	"notice.noLayouts": "このデッキには選べるレイアウトがありません。",
+	"notice.linkCopied": "{link} をコピーしました",
+	"notice.copyFailed": "リンクをコピーできませんでした: {message}",
 	"notice.imageFailed": "画像を挿入できませんでした: {message}",
 	"notice.exported": "{path} に書き出しました",
 	"notice.exportFailed": "スライドを書き出せませんでした: {message}",
@@ -664,6 +684,8 @@ const JA: Record<StringKey, string> = {
 	"palette.exportPng": "現在のスライドを PNG で書き出す",
 	"palette.extract": "デッキの文字を Markdown ノートに抽出",
 	"palette.openExternally": "既定のアプリでデッキを開く",
+	"palette.presentFromStart": "スライドショーを最初から開始",
+	"palette.presentFromCurrent": "スライドショーを現在のスライドから開始",
 
 	"settings.viewer": "ビューア",
 	"settings.thumbnails": "サムネイル一覧",

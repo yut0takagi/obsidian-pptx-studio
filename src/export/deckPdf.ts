@@ -17,7 +17,12 @@ import { buildPdf, pointSize, rgbFromRgba, type PdfPage } from "./pdf";
  * kept out of those too.
  */
 export function printedSlides(deck: Deck): Slide[] {
-	const slides = deck.slides.filter((slide) => !slide.hidden);
+	return deck.slides.filter((slide) => !slide.hidden);
+}
+
+/** The printed slides, or a readable error rather than an empty document. */
+function requirePrinted(deck: Deck): Slide[] {
+	const slides = printedSlides(deck);
 	if (slides.length === 0) throw new Error(t("notice.allHidden"));
 	return slides;
 }
@@ -31,7 +36,7 @@ async function pages(
 ): Promise<PdfPage[]> {
 	const out: PdfPage[] = [];
 	const size = pointSize(deck.width, deck.height);
-	const slides = printedSlides(deck);
+	const slides = requirePrinted(deck);
 	for (const [index, slide] of slides.entries()) {
 		const canvas = await rasteriseSlide(deck, slide, pkg, scale);
 		const context = canvas.getContext("2d");
@@ -72,7 +77,7 @@ export async function printDeck(
 	onProgress?: (done: number, total: number) => void,
 ): Promise<void> {
 	const images: string[] = [];
-	const slides = printedSlides(deck);
+	const slides = requirePrinted(deck);
 	for (const [index, slide] of slides.entries()) {
 		const canvas = await rasteriseSlide(deck, slide, pkg, scale);
 		images.push(canvas.toDataURL("image/png"));

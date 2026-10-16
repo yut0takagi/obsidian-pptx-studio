@@ -49,6 +49,8 @@ export interface DeckViewerOptions {
 	onExtractMarkdown?: () => void;
 	onOpenExternal?: () => void;
 	onSave?: () => void;
+	/** Start a slide show from the given slide, counting from zero. */
+	onPresent?: (slideIndex: number) => void;
 	/** Supplied only where editing is allowed, i.e. the full file view. */
 	editor?: EditController;
 	shapeEditor?: ShapeEditor;
@@ -171,6 +173,11 @@ export class DeckViewer {
 		this.statusEl = bar.createSpan({ cls: "pptx-status" });
 
 		const right = bar.createDiv({ cls: "pptx-toolbar-group pptx-toolbar-right" });
+		if (this.options.onPresent) {
+			this.iconButton(right, "presentation", t("cmd.present"), () =>
+				this.options.onPresent?.(this.index),
+			);
+		}
 		this.iconButton(right, "sticky-note", t("notes.toggle"), () => this.toggleNotes());
 		this.iconButton(right, "zoom-out", t("zoom.out"), () => this.stepZoom(-1));
 		this.zoomLabelEl = right.createSpan({ cls: "pptx-zoom-label" });
