@@ -510,7 +510,7 @@
 <body>
 
 <header class="topbar">
-  <div class="wordmark">PPTX Studio <span class="tag">0.2.0</span></div>
+  <div class="wordmark">PPTX Studio <span class="tag">0.3.0</span></div>
   <div class="spacer"></div>
   <div class="langswitch" role="group" aria-label="Language">
     <button type="button" data-set="en">EN</button>
@@ -688,13 +688,41 @@
           <p class="label">Slides</p>
           <h3><span class="en">Add, duplicate, reorder</span><span class="ja">追加・複製・並べ替え</span></h3>
           <p>
-            <span class="en">Build a slide from any layout in the deck, duplicate it, drag a thumbnail to move it, set
-              a background colour.</span>
-            <span class="ja">デッキ内の任意のレイアウトからスライドを作り、複製し、サムネイルをドラッグして並べ替え、背景色を設定します。</span>
+            <span class="en">Build a slide from any layout in the deck, duplicate it with its speaker notes, drag a
+              thumbnail to move it, set a background colour.</span>
+            <span class="ja">デッキ内の任意のレイアウトからスライドを作り、ノートごと複製し、サムネイルをドラッグして並べ替え、背景色を設定します。</span>
           </p>
         </div>
         <div class="feature new">
-          <p class="label">New in 0.2.0</p>
+          <p class="label">New in 0.3.0</p>
+          <h3><span class="en">Present full screen</span><span class="ja">全画面で発表する</span></h3>
+          <p>
+            <span class="en">A slide show from the first slide or the current one, with each slide's own transition
+              played as it comes in. Arrow keys, Space, a clicker or a click; where fullscreen is not available, as on
+              most phones, the show covers the window instead.</span>
+            <span class="ja">最初から、または今のスライドからスライドショー。各スライドに設定した切り替え効果がそのまま再生されます。矢印キー、Space、プレゼンター用リモコン、クリックで送れます。多くのスマートフォンのように全画面が使えない環境では、ウィンドウ全体に表示します。</span>
+          </p>
+        </div>
+        <div class="feature new">
+          <p class="label">New in 0.3.0</p>
+          <h3><span class="en">Hidden slides stay hidden</span><span class="ja">非表示スライドは非表示のまま</span></h3>
+          <p>
+            <span class="en">A slide PowerPoint hides is marked in the thumbnail rail, skipped in the show, and left
+              out of the PDF and the printout.</span>
+            <span class="ja">PowerPoint で非表示にしたスライドは、サムネイルに印が付き、スライドショーでは飛ばされ、PDF と印刷からも外れます。</span>
+          </p>
+        </div>
+        <div class="feature new">
+          <p class="label">New in 0.3.0</p>
+          <h3><span class="en">Combination charts</span><span class="ja">組み合わせグラフ</span></h3>
+          <p>
+            <span class="en">Columns with a line over them, each on its own value axis, drawn the way the deck shows
+              them instead of losing the line.</span>
+            <span class="ja">縦棒に折れ線を重ねたグラフも、それぞれの値軸で描きます。折れ線が消えることはありません。</span>
+          </p>
+        </div>
+        <div class="feature">
+          <p class="label">Search</p>
           <h3><span class="en">Find and replace</span><span class="ja">検索と置換</span></h3>
           <p>
             <span class="en">Across every slide, not just the one on screen. A phrase split across runs by a change of
@@ -702,8 +730,8 @@
             <span class="ja">画面に出ているスライドだけでなく全スライドを対象に。書式変更でランが分断された語句も見つかり、すべての一致が文脈付きで一覧されます。</span>
           </p>
         </div>
-        <div class="feature new">
-          <p class="label">New in 0.2.0</p>
+        <div class="feature">
+          <p class="label">Export</p>
           <h3><span class="en">PDF and printing</span><span class="ja">PDF と印刷</span></h3>
           <p>
             <span class="en">The whole deck as a PDF, or straight to the print dialog. The PDF is written directly, so
@@ -711,8 +739,8 @@
             <span class="ja">デッキ全体を PDF に、あるいはそのまま印刷ダイアログへ。PDF は自前で書き出すので、こちらも別途インストールは不要です。</span>
           </p>
         </div>
-        <div class="feature new">
-          <p class="label">New in 0.2.0</p>
+        <div class="feature">
+          <p class="label">Motion</p>
           <h3><span class="en">Transitions and animations</span><span class="ja">画面切り替えとアニメーション</span></h3>
           <p>
             <span class="en">A transition per slide, and fade, wipe or fly in as an entrance — on click, with the
@@ -720,8 +748,8 @@
             <span class="ja">スライドごとの切り替えと、開始アニメーション（フェード・ワイプ・フライイン）。クリック時、直前と同時、直前の後から選べます。PowerPoint と同じ書き方で保存されます。</span>
           </p>
         </div>
-        <div class="feature new">
-          <p class="label">New in 0.2.0</p>
+        <div class="feature">
+          <p class="label">Clipboard</p>
           <h3><span class="en">Paste a picture</span><span class="ja">画像を貼り付ける</span></h3>
           <p>
             <span class="en">An image on the system clipboard drops onto the slide. Where the clipboard offers the same
@@ -734,9 +762,11 @@
           <h3><span class="en">Embed and extract</span><span class="ja">埋め込みと抽出</span></h3>
           <p>
             <span class="en"><code>![[deck.pptx]]</code> embeds the deck in a note, <code>![[deck.pptx#3]]</code> pins
-              one slide. Extract to Markdown and the content becomes searchable and linkable.</span>
+              one slide, and <code>![[deck.pptx#id=257]]</code> pins it by id, so it stays the same slide when the deck
+              is reordered. Extract to Markdown and the content becomes searchable and linkable.</span>
             <span class="ja"><code>![[deck.pptx]]</code> でノートに埋め込み、<code>![[deck.pptx#3]]</code>
-              で 1 枚だけ固定。Markdown に抽出すれば、内容が検索でき、リンクも張れるようになります。</span>
+              で 1 枚だけ固定。<code>![[deck.pptx#id=257]]</code> なら id で固定するので、並べ替えても同じスライドを指します。Markdown
+              に抽出すれば、内容が検索でき、リンクも張れるようになります。</span>
           </p>
         </div>
       </div>
@@ -1023,6 +1053,7 @@
             <div><span class="en">Drag a copy</span><span class="ja">複製をドラッグ</span><span><kbd>Alt</kbd></span></div>
             <div><span class="en">Ignore snapping</span><span class="ja">スナップを無効化</span><span><kbd>⌘</kbd> / <kbd>Ctrl</kbd></span></div>
             <div><span class="en">Find and replace</span><span class="ja">検索と置換</span><span><kbd>⌘F</kbd></span></div>
+            <div><span class="en">Slide show · next · back · end</span><span class="ja">スライドショー · 次 · 前 · 終了</span><span><kbd>→</kbd> <kbd>←</kbd> <kbd>Esc</kbd></span></div>
             <div><span class="en">Save</span><span class="ja">保存</span><span><kbd>⌘S</kbd></span></div>
           </div>
         </div>
@@ -1034,8 +1065,8 @@
 <footer>
   <div class="shell footrow">
     <p>
-      <span class="en">PPTX Studio 0.2.0 · MIT licensed · not affiliated with Microsoft or Obsidian</span>
-      <span class="ja">PPTX Studio 0.2.0 · MIT ライセンス · Microsoft および Obsidian とは無関係です</span>
+      <span class="en">PPTX Studio 0.3.0 · MIT licensed · not affiliated with Microsoft or Obsidian</span>
+      <span class="ja">PPTX Studio 0.3.0 · MIT ライセンス · Microsoft および Obsidian とは無関係です</span>
     </p>
     <nav class="footlinks">
       <a href="https://github.com/yut0takagi/obsidian-pptx-studio">GitHub</a>

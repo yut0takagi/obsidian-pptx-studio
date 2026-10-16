@@ -4,6 +4,7 @@ import { renameShape, selectedShapes } from "../edit/commands";
 import { setGeometry } from "../edit/formatCommands";
 import { t } from "../i18n";
 import type { Shape } from "../pptx/types";
+import { own } from "../pptx/lookup";
 import { EMU_PER_PX } from "../pptx/types";
 import { attr, child, numAttr } from "../pptx/xml";
 import { buildPaneHeader } from "./paneHeader";
@@ -288,7 +289,7 @@ function parseLength(text: string): number | null {
 	const unit = match[2].toLowerCase();
 	if (!Number.isFinite(value)) return null;
 	if (!unit) return value;
-	const factor = UNITS[unit];
+	const factor = own(UNITS, unit);
 	return factor === undefined ? null : value * factor;
 }
 

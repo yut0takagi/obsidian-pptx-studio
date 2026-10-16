@@ -1,3 +1,4 @@
+import { own } from "../pptx/lookup";
 import { EMU_PER_PX } from "../pptx/types";
 import type { PptxPackage } from "../pptx/package";
 import { CT, ensureDefault } from "./contentTypes";
@@ -216,7 +217,7 @@ export function buildPicture(
 	mediaPath = nextMediaPath(pkg, image.extension),
 ): Element {
 	const ext = image.extension.toLowerCase().replace(/^\./, "");
-	ensureDefault(pkg, ext, CT.image[ext] ?? "application/octet-stream");
+	ensureDefault(pkg, ext, own(CT.image, ext) ?? "application/octet-stream");
 	pkg.addPart(mediaPath, image.bytes);
 
 	const relId = ensureRelationship(pkg, slidePath, `${REL_BASE}/image`, mediaPath);

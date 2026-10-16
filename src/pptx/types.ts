@@ -1,4 +1,5 @@
 import type { ChartModel } from "./chart";
+import type { SlideTransition } from "./transition";
 
 /** The renderer-facing model. Parsing turns OOXML into these; rendering only reads these. */
 
@@ -16,12 +17,21 @@ export interface Slide {
 	name: string;
 	/** Package part path, e.g. "ppt/slides/slide1.xml". */
 	partPath: string;
+	/**
+	 * p:sldId@id: the slide's identity within the deck, which stays with it when
+	 * slides are reordered. Null only for a slide that could not be read.
+	 */
+	slideId: number | null;
 	background: Fill | null;
 	/** Layout/master decoration first, then the slide's own shapes. */
 	shapes: Shape[];
 	/** How many leading entries of `shapes` came from the layout or master. */
 	templateShapes: number;
 	notes: string;
+	/** p:sld@show="0": kept in the deck, left out of the show and of printed pages. */
+	hidden: boolean;
+	/** How the slide enters when presented, and whether it advances by itself. */
+	transition: SlideTransition | null;
 }
 
 export type Fill =

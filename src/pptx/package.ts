@@ -1,4 +1,5 @@
 import { unzipSync, zipSync } from "fflate";
+import { own } from "./lookup";
 import { attr, parseXml } from "./xml";
 
 export interface Relationship {
@@ -62,7 +63,9 @@ export class PptxPackage {
 			throw new Error(`Could not unzip the .pptx: ${(e as Error).message}`);
 		}
 		// Normalise away any leading "/" some producers emit.
-		const normalised: Record<string, Uint8Array> = {};
+		// Keyed by names out of the archive, so it inherits nothing: a part path
+		// of "constructor" is a part that is not there, not Object's constructor.
+		const normalised = Object.create(null) as Record<string, Uint8Array>;
 		for (const [name, content] of Object.entries(files)) {
 			normalised[name.replace(/^\/+/, "")] = content;
 		}
@@ -161,7 +164,7 @@ export class PptxPackage {
 		const raw = this.files[path];
 		let url: string | null = null;
 		if (raw && !UNRENDERABLE.has(ext)) {
-			const mime = MIME_BY_EXT[ext] ?? "application/octet-stream";
+			const mime = own(MIME_BY_EXT, ext) ?? "application/octet-stream";
 			// Copy into a fresh buffer: fflate hands back views onto a shared one.
 			url = URL.createObjectURL(new Blob([raw.slice()], { type: mime }));
 			this.objectUrls.push(url);
@@ -175,7 +178,7 @@ export class PptxPackage {
 		const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
 		const raw = this.files[path];
 		if (!raw || UNRENDERABLE.has(ext)) return null;
-		const mime = MIME_BY_EXT[ext] ?? "application/octet-stream";
+		const mime = own(MIME_BY_EXT, ext) ?? "application/octet-stream";
 		let binary = "";
 		const chunk = 0x8000;
 		for (let i = 0; i < raw.length; i += chunk) {
@@ -257,7 +260,7 @@ export class PptxPackage {
 	 */
 	toZip(): Uint8Array {
 		const encoder = new TextEncoder();
-		const out: Record<string, Uint8Array> = {};
+		const out = Object.create(null) as Record<string, Uint8Array>;
 
 		// [Content_Types].xml must be the first entry of an OPC package.
 		const ordered = Object.keys(this.files).sort((a, b) =>

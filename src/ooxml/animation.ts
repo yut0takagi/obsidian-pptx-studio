@@ -15,6 +15,7 @@
  * code did not write is read but never edited in place: what it can say about
  * such a slide is what is there, and the only change it offers is removal.
  */
+import { own } from "../pptx/lookup";
 import { attr, child, children } from "../pptx/xml";
 import { p as pEl } from "./tree";
 
@@ -191,8 +192,8 @@ export function readAnimations(slide: Element): AnimationEntry[] {
 		const preset = attr(cTn, "presetID") ?? "";
 		out.push({
 			shapeId,
-			effect: EFFECT_BY_PRESET[preset] ?? "other",
-			trigger: TRIGGER_BY_NODE_TYPE[attr(cTn, "nodeType") ?? ""] ?? "click",
+			effect: own(EFFECT_BY_PRESET, preset) ?? "other",
+			trigger: own(TRIGGER_BY_NODE_TYPE, attr(cTn, "nodeType")) ?? "click",
 			// Numbered after the skips, so it always indexes back into this list.
 			index: out.length,
 		});

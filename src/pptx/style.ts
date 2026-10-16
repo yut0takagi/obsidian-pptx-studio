@@ -3,6 +3,7 @@ import { gradientCss, resolveColor, resolveFillColor } from "./color";
 import type { PptxPackage } from "./package";
 import type { Crop, Fill, Stroke } from "./types";
 import { emuToPx } from "./types";
+import { own } from "./lookup";
 import { attr, child, numAttr } from "./xml";
 
 /**
@@ -108,7 +109,7 @@ export function parseStroke(props: Element | null, ctx: ParseContext, phClr?: st
 		color,
 		// PowerPoint's default hairline is 0.75pt; anything thinner disappears.
 		width: widthEmu === null ? 1 : Math.max(0.75, emuToPx(widthEmu)),
-		style: (dash && DASH_STYLES[dash]) || "solid",
+		style: own(DASH_STYLES, dash) ?? "solid",
 	};
 }
 
@@ -142,7 +143,7 @@ export function strokeFromStyleRef(style: Element | null, ctx: ParseContext): St
 	return {
 		color,
 		width: widthEmu === null ? 1 : Math.max(0.75, emuToPx(widthEmu)),
-		style: (dash && DASH_STYLES[dash]) || "solid",
+		style: own(DASH_STYLES, dash) ?? "solid",
 	};
 }
 

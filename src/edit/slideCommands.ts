@@ -8,6 +8,7 @@ import {
 	duplicateSlide,
 	layoutOf,
 	moveSlide,
+	nextNotesSlidePath,
 	nextSlidePath,
 	setSlideBackground,
 	slidePaths,
@@ -51,15 +52,17 @@ export function duplicateCurrentSlide(ctx: CommandContext): number {
 	const position = ctx.slide.index;
 	const source = ctx.slide.partPath;
 	const created = nextSlidePath(ctx.pkg);
+	// The copy's notes are a part of their own, so they are snapshotted too. The
+	// original slide and its notes are only read, and are left out so the save
+	// does not rewrite them.
+	const notes = ctx.pkg.relByKind(source, "notesSlide") ? nextNotesSlidePath(ctx.pkg) : null;
+	const touched = [created, relsPathFor(created)];
+	if (notes) touched.push(notes, relsPathFor(notes));
 
-	const done = ctx.editor.transact(
-		"Duplicate slide",
-		parts(ctx, [source, created, relsPathFor(created)]),
-		() => {
-			duplicateSlide(ctx.pkg, source, position, created);
-			return true;
-		},
-	);
+	const done = ctx.editor.transact("Duplicate slide", parts(ctx, touched), () => {
+		duplicateSlide(ctx.pkg, source, position, created, notes ?? undefined);
+		return true;
+	});
 	return done ? position : -1;
 }
 

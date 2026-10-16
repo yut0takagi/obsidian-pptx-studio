@@ -99,6 +99,8 @@ export interface RibbonHost {
 	printDeck: () => void;
 	extractMarkdown: () => void;
 	openExternally: () => void;
+	presentFromStart: () => void;
+	presentFromCurrent: () => void;
 }
 
 /** Presets offered by the shapes menu, in the order PowerPoint groups them. */
@@ -832,6 +834,25 @@ export function buildTabs(host: RibbonHost): RibbonTab[] {
 			id: "view",
 			title: t("tab.view"),
 			groups: [
+				{
+					title: t("group.slideShow"),
+					items: [
+						{
+							kind: "button",
+							icon: "presentation",
+							label: t("cmd.presentFromStart"),
+							tooltip: t("cmd.presentFromStartTooltip"),
+							onClick: host.presentFromStart,
+						},
+						{
+							kind: "button",
+							icon: "play",
+							label: t("cmd.presentFromCurrent"),
+							tooltip: t("cmd.presentFromCurrentTooltip"),
+							onClick: host.presentFromCurrent,
+						},
+					],
+				},
 				{
 					title: t("group.zoom"),
 					items: [

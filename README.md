@@ -30,7 +30,16 @@ into `<vault>/.obsidian/plugins/pptx-studio/`.
 ## Features
 
 - **Deck view** — click a `.pptx` in the file explorer to open it. Thumbnail
-  rail, `↑`/`↓` (or `k`/`j`) to page, zoom, speaker notes.
+  rail, `↑`/`↓` (or `k`/`j`) to page, zoom, speaker notes. Hidden slides are
+  marked in the rail: the number struck through, an eye-off icon, the picture
+  dimmed.
+- **Present** — a full-screen slide show from the first slide or the current
+  one (command palette, the button under the slide, or View → Slide show). Each
+  slide's own transition plays as it comes in, slides set to advance on a timer
+  do, and hidden slides are skipped. `→`/`Space`/`PageDown` or a click goes
+  forward, `←`/`PageUp` back, `Esc` ends it. Where fullscreen is not available —
+  most phones and tablets — the show covers the Obsidian window instead, with
+  on-screen controls, and a tap on the left third of the screen goes back.
 - **Edit text in place** — double-click a text box, type, `Cmd/Ctrl+S` to save.
   Only the slide XML you touched is rewritten; every other part of the file is
   repacked byte for byte, so animations, transitions, embedded fonts and any
@@ -48,8 +57,8 @@ into `<vault>/.obsidian/plugins/pptx-studio/`.
   and tables.
 - **Tables** — click a cell to select it, shift-click to extend, then insert and
   delete rows and columns, merge and split cells, and fill them.
-- **Slides** — add from any layout, duplicate, delete, and reorder by dragging a
-  thumbnail. Set a slide's background colour.
+- **Slides** — add from any layout, duplicate (speaker notes included), delete,
+  and reorder by dragging a thumbnail. Set a slide's background colour.
 - **Rulers and guides** — drag a guide out of a ruler, drag it to move, drag it
   off the slide to remove it. Shapes snap to guides. They are stored in the deck
   the way PowerPoint stores them, so they appear there too.
@@ -71,13 +80,19 @@ into `<vault>/.obsidian/plugins/pptx-studio/`.
   in as an entrance on any shape, starting on click, with the previous effect or
   after it. The order can be rearranged. An effect written by PowerPoint that
   this plugin does not model is listed but left alone rather than rewritten.
+  Transitions play when presenting, including the ones PowerPoint 2010 and later
+  write; one with no drawing here plays as a fade rather than not at all.
 - **Embed slides in notes** — `![[deck.pptx]]` embeds the deck, `![[deck.pptx#3]]`
-  pins a single slide.
+  pins a single slide by position, and `![[deck.pptx#id=257]]` pins it by the
+  id PowerPoint keeps with each slide, so the embed still shows the same slide
+  after the deck is reordered. Right-click a thumbnail → *Copy embed link* to
+  get the id form.
 - **Extract to Markdown** — turn a deck into an outline note so its content is
   searchable, linkable and shows up in backlinks.
 - **Export** — a slide as PNG at 1×, 2× or 3×, the whole deck as a PDF, or
   straight to the print dialog. The PDF is written directly rather than through
-  a converter, so it needs nothing installed either.
+  a converter, so it needs nothing installed either. Hidden slides are left out
+  of the PDF and the printout, as they are left out of the show.
 
 ## Language
 
@@ -181,7 +196,8 @@ with cropping, tables with merged cells, groups, connectors, and SmartArt (via
 the plain-shapes fallback drawing PowerPoint stores alongside it).
 
 **Charts** are drawn as SVG — column, bar, stacked and percent-stacked, line,
-area, pie, doughnut and scatter — from the values every chart part caches
+area, pie, doughnut and scatter, and combinations of columns, lines and areas
+with a secondary value axis — from the values every chart part caches
 alongside its embedded workbook. That cache is what the deck was showing when it
 was saved, so no spreadsheet has to be opened to plot it. Series take their
 colours from the deck's theme accents unless the chart names its own, and a

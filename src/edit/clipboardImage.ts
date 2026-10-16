@@ -10,6 +10,8 @@
  * What is decided here is which item to read and what to call it.
  */
 
+import { own } from "../pptx/lookup";
+
 /** Clipboard MIME types PowerPoint can store as-is, and the extension to use. */
 const EXTENSION_BY_TYPE: Record<string, string> = {
 	"image/png": "png",
@@ -31,7 +33,7 @@ const PREFERENCE = ["png", "jpg", "gif", "webp", "bmp", "svg"];
 /** The extension for a clipboard type, ignoring any parameters after a ";". */
 export function extensionForImageType(type: string): string | null {
 	const bare = type.toLowerCase().split(";")[0].trim();
-	return EXTENSION_BY_TYPE[bare] ?? null;
+	return own(EXTENSION_BY_TYPE, bare) ?? null;
 }
 
 export interface ChosenImage<T> {

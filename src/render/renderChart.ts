@@ -1,4 +1,5 @@
-import type { ChartModel, ChartSeries } from "../pptx/chart";
+import type { ChartGroup, ChartKind, ChartModel, ChartSeries } from "../pptx/chart";
+import { t } from "../i18n";
 import type { ChartShape } from "../pptx/types";
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -17,7 +18,10 @@ const FAINT_TEXT = "rgba(0,0,0,0.55)";
  * other.
  */
 export function renderChart(shape: ChartShape): SVGElement {
-	const { chart } = shape;
+	// Types that cannot share axes — a pie beside columns — are drawn as the
+	// first of them, which is what the chart is laid out around.
+	const combination = isCombination(shape.chart);
+	const chart = combination ? shape.chart : firstGroupOnly(shape.chart);
 	const width = Math.max(shape.frame.w, 40);
 	const height = Math.max(shape.frame.h, 40);
 
@@ -40,11 +44,17 @@ export function renderChart(shape: ChartShape): SVGElement {
 	}
 
 	if (chart.empty || chart.series.length === 0) {
-		text(svg, width / 2, height / 2, chart.title || "Chart", {
+		text(svg, width / 2, height / 2, chart.tooLarge ? t("chart.tooLarge") : chart.title || "Chart", {
 			size: font,
 			anchor: "middle",
 			fill: FAINT_TEXT,
 		});
+		return svg;
+	}
+
+	if (combination) {
+		drawCombination(svg, chart, layout, font);
+		drawLegend(svg, chart, layout, font);
 		return svg;
 	}
 
@@ -73,6 +83,130 @@ export function renderChart(shape: ChartShape): SVGElement {
 
 	drawLegend(svg, chart, layout, font);
 	return svg;
+}
+
+// ----------------------------------------------------------- combination
+
+/** Chart types that can share one upright category axis. */
+const COMBINABLE = new Set<ChartKind>(["column", "line", "area"]);
+
+/** Areas go behind columns, and lines in front of both, whatever order the file lists them in. */
+const DRAW_ORDER: Record<string, number> = { area: 0, column: 1, line: 2 };
+
+function isCombination(chart: ChartModel): boolean {
+	return chart.groups.length > 1 && chart.groups.every((group) => COMBINABLE.has(group.kind));
+}
+
+/** The chart narrowed to its first group, with series renumbered to match. */
+function firstGroupOnly(chart: ChartModel): ChartModel {
+	const first = chart.groups[0];
+	if (!first || chart.groups.length <= 1) return chart;
+	return {
+		...chart,
+		series: first.series.map((index) => chart.series[index]),
+		groups: [{ ...first, series: first.series.map((_, i) => i) }],
+	};
+}
+
+/** A one-group chart as a group, so it can go through the same drawing as a combination. */
+function wholeChart(chart: ChartModel): ChartGroup {
+	return {
+		kind: chart.kind,
+		stacked: chart.stacked,
+		percentStacked: chart.percentStacked,
+		secondary: false,
+		series: chart.series.map((_, i) => i),
+	};
+}
+
+interface AxisTicks {
+	ticks: number[];
+	percent: boolean;
+}
+
+/**
+ * Ticks for each value axis of a combination chart. Each axis spans every
+ * group plotted against it, each group taken with its own stacking. With no
+ * group on the secondary axis there is only the one.
+ */
+function combinationTicks(chart: ChartModel): { primary: AxisTicks; secondary: AxisTicks | null } {
+	const side = (secondary: boolean): AxisTicks | null => {
+		const groups = chart.groups.filter((group) => group.secondary === secondary);
+		if (groups.length === 0) return null;
+		let min = 0;
+		let max = 0;
+		for (const group of groups) {
+			const range = groupRange(chart, group);
+			min = Math.min(min, range.min);
+			max = Math.max(max, range.max);
+		}
+		return {
+			ticks: ticksFor({ min, max }),
+			percent: groups.every((group) => group.percentStacked),
+		};
+	};
+	const primary = side(false);
+	return primary ? { primary, secondary: side(true) } : { primary: side(true)!, secondary: null };
+}
+
+function drawCombination(svg: SVGElement, chart: ChartModel, layout: Layout, font: number): void {
+	const { plot } = layout;
+	const ticks = combinationTicks(chart);
+	const primary = drawValueAxis(svg, plot, font, ticks.primary, "left");
+	const secondary = ticks.secondary ? drawValueAxis(svg, plot, font, ticks.secondary, "right") : primary;
+
+	// Columns sit in a band per category, so the line's points go in the middle
+	// of each band to stand over them, rather than on the band edges.
+	const count = Math.max(chart.categories.length, 1);
+	const band = plot.w / count;
+	const centre = (i: number): number => plot.x + band * (i + 0.5);
+
+	const groups = [...chart.groups].sort((a, b) => (DRAW_ORDER[a.kind] ?? 1) - (DRAW_ORDER[b.kind] ?? 1));
+	for (const group of groups) {
+		const axes = group.secondary ? secondary : primary;
+		if (group.kind === "column") drawBarSeries(svg, chart, group, axes, plot, band, false);
+		else drawLineSeries(svg, chart, group, axes, font, centre, group.kind === "area");
+	}
+
+	drawCategoryLabels(svg, chart, layout, font, false, band, (i) => band * (i + 0.5));
+}
+
+/**
+ * A value axis: gridlines and labels on the left, labels alone on the right —
+ * a second set of gridlines would only cross the first.
+ */
+function drawValueAxis(
+	svg: SVGElement,
+	plot: Layout["plot"],
+	font: number,
+	axis: AxisTicks,
+	side: "left" | "right",
+): Axes {
+	const { ticks } = axis;
+	const lo = ticks[0];
+	const hi = ticks[ticks.length - 1];
+	const span = hi - lo || 1;
+	const toValue = (v: number): number => plot.y + plot.h - ((v - lo) / span) * plot.h;
+
+	for (const tick of ticks) {
+		const at = toValue(tick);
+		const label = axis.percent ? `${Math.round(tick * 100)}%` : formatTick(tick);
+		if (side === "left") {
+			line(svg, plot.x, at, plot.x + plot.w, at, tick === 0 ? AXIS_COLOUR : GRID_COLOUR);
+			text(svg, plot.x - font * 0.4, at + font * 0.3, label, {
+				size: font * 0.85,
+				anchor: "end",
+				fill: FAINT_TEXT,
+			});
+		} else {
+			text(svg, plot.x + plot.w + font * 0.4, at + font * 0.3, label, {
+				size: font * 0.85,
+				anchor: "start",
+				fill: FAINT_TEXT,
+			});
+		}
+	}
+	return { ticks, toValue, zero: toValue(Math.min(Math.max(0, lo), hi)) };
 }
 
 // ---------------------------------------------------------------- layout
@@ -122,8 +256,13 @@ function layoutRegions(chart: ChartModel, width: number, height: number, font: n
 
 	// Category charts need gutters for their axis labels; pies do not.
 	if (chart.kind !== "pie" && chart.kind !== "doughnut") {
-		const ticks = valueTicks(chart);
+		const combination = isCombination(chart) ? combinationTicks(chart) : null;
+		const ticks = combination ? combination.primary.ticks : valueTicks(chart);
 		const widest = Math.max(...ticks.map((v) => formatTick(v).length), 3);
+		if (combination?.secondary) {
+			const widestRight = Math.max(...combination.secondary.ticks.map((v) => formatTick(v).length), 3);
+			right -= widestRight * font * 0.6 + font * 0.5;
+		}
 		if (chart.kind === "bar") {
 			left += Math.max(...chart.categories.map((c) => c.length), 3) * font * 0.55 + font * 0.5;
 			bottom -= font * 1.7;
@@ -150,15 +289,21 @@ function longestLabel(chart: ChartModel): number {
 
 /** Value range across the chart, taking stacking into account. */
 function valueRange(chart: ChartModel): { min: number; max: number } {
-	if (chart.percentStacked) return { min: 0, max: 1 };
+	return groupRange(chart, wholeChart(chart));
+}
+
+/** Value range of one group's series, with that group's own stacking. */
+function groupRange(chart: ChartModel, group: ChartGroup): { min: number; max: number } {
+	if (group.percentStacked) return { min: 0, max: 1 };
+	const members = group.series.map((index) => chart.series[index]);
 	let min = 0;
 	let max = 0;
-	if (chart.stacked) {
-		const length = Math.max(...chart.series.map((s) => s.values.length), 0);
+	if (group.stacked) {
+		const length = Math.max(...members.map((s) => s.values.length), 0);
 		for (let i = 0; i < length; i++) {
 			let positive = 0;
 			let negative = 0;
-			for (const series of chart.series) {
+			for (const series of members) {
 				const value = series.values[i] ?? 0;
 				if (value >= 0) positive += value;
 				else negative += value;
@@ -167,7 +312,7 @@ function valueRange(chart: ChartModel): { min: number; max: number } {
 			min = Math.min(min, negative);
 		}
 	} else {
-		for (const series of chart.series) {
+		for (const series of members) {
 			for (const value of series.values) {
 				if (value === null) continue;
 				max = Math.max(max, value);
@@ -181,7 +326,10 @@ function valueRange(chart: ChartModel): { min: number; max: number } {
 
 /** Round tick values, chosen so the axis reads in human numbers. */
 function valueTicks(chart: ChartModel): number[] {
-	const { min, max } = valueRange(chart);
+	return ticksFor(valueRange(chart));
+}
+
+function ticksFor({ min, max }: { min: number; max: number }): number[] {
 	const span = max - min || 1;
 	const rough = span / 4;
 	const magnitude = 10 ** Math.floor(Math.log10(rough));
@@ -279,25 +427,41 @@ function drawBars(
 	const axes = drawCartesianFrame(svg, chart, layout, font, horizontal);
 	const count = Math.max(chart.categories.length, 1);
 	const band = (horizontal ? plot.h : plot.w) / count;
+	drawBarSeries(svg, chart, wholeChart(chart), axes, plot, band, horizontal);
+	drawCategoryLabels(svg, chart, layout, font, horizontal, band, (i) => band * (i + 0.5));
+}
+
+/** One group's bars, clustered or stacked within each category's band. */
+function drawBarSeries(
+	svg: SVGElement,
+	chart: ChartModel,
+	group: ChartGroup,
+	axes: Axes,
+	plot: Layout["plot"],
+	band: number,
+	horizontal: boolean,
+): void {
+	const members = group.series.map((index) => chart.series[index]);
+	const count = Math.max(chart.categories.length, 1);
 	const groupWidth = band * 0.72;
-	const barWidth = chart.stacked ? groupWidth : groupWidth / Math.max(chart.series.length, 1);
+	const barWidth = group.stacked ? groupWidth : groupWidth / Math.max(members.length, 1);
 
 	for (let c = 0; c < count; c++) {
 		const bandStart = (horizontal ? plot.y : plot.x) + c * band + (band - groupWidth) / 2;
 		let positiveTop = 0;
 		let negativeTop = 0;
 
-		chart.series.forEach((series, s) => {
+		members.forEach((series, s) => {
 			let value = series.values[c];
 			if (value === null || value === undefined) return;
-			if (chart.percentStacked) {
-				const total = chart.series.reduce((sum, other) => sum + Math.abs(other.values[c] ?? 0), 0);
+			if (group.percentStacked) {
+				const total = members.reduce((sum, other) => sum + Math.abs(other.values[c] ?? 0), 0);
 				value = total === 0 ? 0 : value / total;
 			}
 
 			let from: number;
 			let to: number;
-			if (chart.stacked) {
+			if (group.stacked) {
 				const base = value >= 0 ? positiveTop : negativeTop;
 				from = axes.toValue(base);
 				to = axes.toValue(base + value);
@@ -308,7 +472,7 @@ function drawBars(
 				to = axes.toValue(value);
 			}
 
-			const offset = chart.stacked ? 0 : s * barWidth;
+			const offset = group.stacked ? 0 : s * barWidth;
 			const rect = document.createElementNS(SVG, "rect");
 			if (horizontal) {
 				rect.setAttribute("x", String(Math.min(from, to)));
@@ -321,12 +485,10 @@ function drawBars(
 				rect.setAttribute("width", String(Math.max(barWidth * 0.86, 1)));
 				rect.setAttribute("height", String(Math.max(Math.abs(to - from), 0.5)));
 			}
-			rect.setAttribute("fill", seriesColour(chart, series, s));
+			rect.setAttribute("fill", seriesColour(chart, series, group.series[s]));
 			svg.appendChild(rect);
 		});
 	}
-
-	drawCategoryLabels(svg, chart, layout, font, horizontal, band, (i) => band * (i + 0.5));
 }
 
 /**
@@ -385,8 +547,27 @@ function drawLines(
 	const step = count > 1 ? plot.w / (count - 1) : 0;
 	const x = (i: number) => (count > 1 ? plot.x + i * step : plot.x + plot.w / 2);
 
-	chart.series.forEach((series, s) => {
-		const colour = seriesColour(chart, series, s);
+	drawLineSeries(svg, chart, wholeChart(chart), axes, font, x, filled);
+
+	drawCategoryLabels(svg, chart, layout, font, false, count > 1 ? step : plot.w, (i) =>
+		count > 1 ? i * step : plot.w / 2,
+	);
+}
+
+/** One group's lines, or areas when `filled`, with category i drawn at x(i). */
+function drawLineSeries(
+	svg: SVGElement,
+	chart: ChartModel,
+	group: ChartGroup,
+	axes: Axes,
+	font: number,
+	x: (index: number) => number,
+	filled: boolean,
+): void {
+	const count = Math.max(chart.categories.length, 1);
+	group.series.forEach((seriesIndex) => {
+		const series = chart.series[seriesIndex];
+		const colour = seriesColour(chart, series, seriesIndex);
 		// A null is a gap in the data, so the line is drawn in runs.
 		let run: { x: number; y: number }[] = [];
 		const flush = (): void => {
@@ -427,10 +608,6 @@ function drawLines(
 		}
 		flush();
 	});
-
-	drawCategoryLabels(svg, chart, layout, font, false, count > 1 ? step : plot.w, (i) =>
-		count > 1 ? i * step : plot.w / 2,
-	);
 }
 
 // -------------------------------------------------------------- scatter

@@ -37,6 +37,7 @@ import {
 } from "../edit/slideCommands";
 import { rebuildDeck, rebuildSlideAt } from "../pptx/parse";
 import { DeckViewer } from "../render/DeckViewer";
+import { Presenter } from "../render/Presenter";
 import { ContextToolbar } from "../ui/ContextToolbar";
 import { Ribbon } from "../ui/Ribbon";
 import { InspectorPane } from "../ui/InspectorPane";
@@ -55,6 +56,7 @@ import { t } from "../i18n";
 import type PptxStudioPlugin from "../main";
 import { chooseImage, clipboardImageName } from "../edit/clipboardImage";
 import { findMatches, replaceAll } from "../edit/findReplace";
+import { slideEmbedLink } from "./slideRef";
 
 export const VIEW_TYPE_PPTX = "pptx-studio";
 
@@ -101,6 +103,7 @@ export class PptxView extends FileView {
 	private readonly tableSelection = new TableSelection();
 	private activeSlideEl: HTMLElement | null = null;
 	private loaded: LoadedDeck | null = null;
+	private presenter: Presenter | null = null;
 	/** mtime the open deck was read from, used to detect outside edits. */
 	private baseMtime = 0;
 	private showThumbnails = true;
@@ -309,6 +312,7 @@ export class PptxView extends FileView {
 				this.contextToolbar?.refresh();
 			},
 			onThumbnailMenu: (index, event) => this.showSlideMenu(index, event),
+			onPresent: (index) => this.present(index),
 			onReorder: (from, to) => {
 				this.run((ctx) => reorderSlide(ctx, from, to));
 				this.viewer?.go(to);
@@ -507,12 +511,69 @@ export class PptxView extends FileView {
 		menu.addSeparator();
 		menu.addItem((item) =>
 			item
+				.setTitle(t("cmd.copyEmbedLink"))
+				.setIcon("link")
+				.onClick(() => this.copyEmbedLink(index)),
+		);
+		menu.addSeparator();
+		menu.addItem((item) =>
+			item
 				.setTitle(t("cmd.deleteSlide"))
 				.setIcon("trash-2")
 				.setDisabled(!canDeleteSlide(ctx))
 				.onClick(() => this.run(deleteCurrentSlide)),
 		);
 		menu.showAtMouseEvent(event);
+	}
+
+	/**
+	 * Put `![[deck.pptx#id=257]]` on the clipboard. The id stays with the slide
+	 * when the deck is reordered, which a slide number does not.
+	 */
+	private copyEmbedLink(index: number): void {
+		const file = this.file;
+		const slide = this.loaded?.deck.slides[index];
+		if (!file || !slide) return;
+		const link = slideEmbedLink(this.app.metadataCache.fileToLinktext(file, ""), slide);
+		// Where there is no clipboard API the call throws rather than rejecting;
+		// starting from a resolved promise sends both to the same notice.
+		void Promise.resolve()
+			.then(() => navigator.clipboard.writeText(link))
+			.then(
+				() => new Notice(t("notice.linkCopied", { link })),
+				(error: unknown) =>
+					new Notice(t("notice.copyFailed", { message: (error as Error)?.message ?? String(error) })),
+			);
+	}
+
+	// ------------------------------------------------------------ presenting
+
+	/** Start a slide show from a slide, counting from zero. */
+	present(fromIndex: number): void {
+		const loaded = this.loaded;
+		if (!loaded || this.presenter) return;
+		// A half-typed edit belongs in the deck being shown.
+		this.editController?.commit();
+		this.presenter = Presenter.open({
+			deck: loaded.deck,
+			startIndex: fromIndex,
+			doc: this.contentEl.ownerDocument,
+			onClose: (index) => {
+				this.presenter = null;
+				// Back in the editor on the slide the show ended on, as PowerPoint does.
+				this.viewer?.go(index);
+				this.viewer?.focus();
+			},
+		});
+		if (!this.presenter) new Notice(t("notice.allHidden"));
+	}
+
+	presentFromStart(): void {
+		this.present(0);
+	}
+
+	presentFromCurrent(): void {
+		this.present((this.viewer?.currentSlideNumber ?? 1) - 1);
 	}
 
 	private context(): CommandContext | null {
@@ -620,6 +681,8 @@ export class PptxView extends FileView {
 				if (this.loaded) void this.plugin.extractMarkdown(this.loaded, this.file);
 			},
 			openExternally: () => this.plugin.openExternally(this.file),
+			presentFromStart: () => this.presentFromStart(),
+			presentFromCurrent: () => this.presentFromCurrent(),
 		};
 	}
 
@@ -919,6 +982,8 @@ export class PptxView extends FileView {
 	}
 
 	private teardown(): void {
+		this.presenter?.close();
+		this.presenter = null;
 		if (this.uiFrame) window.cancelAnimationFrame(this.uiFrame);
 		this.uiFrame = 0;
 		this.contentEl.removeEventListener("keydown", this.onKeyDown, { capture: true });

@@ -3,7 +3,7 @@ import { setLanguage, t } from "./i18n";
 import { DeckCache, type LoadedDeck } from "./DeckCache";
 import { deckToMarkdown } from "./export/markdown";
 import { pngFileName, renderSlideToPng } from "./export/png";
-import { deckToPdf, printDeck } from "./export/deckPdf";
+import { deckToPdf, printDeck, printedSlides } from "./export/deckPdf";
 import { pdfFileName } from "./export/pdf";
 import { DEFAULT_SETTINGS, type PptxStudioSettings } from "./settings";
 import { PptxSettingsTab } from "./view/SettingsTab";
@@ -40,6 +40,28 @@ export default class PptxStudioPlugin extends Plugin {
 	}
 
 	private registerCommands(): void {
+		this.addCommand({
+			id: "present-from-start",
+			name: t("palette.presentFromStart"),
+			checkCallback: (checking) => {
+				const view = this.activeDeckView();
+				if (!view?.file) return false;
+				if (!checking) view.presentFromStart();
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: "present-from-current",
+			name: t("palette.presentFromCurrent"),
+			checkCallback: (checking) => {
+				const view = this.activeDeckView();
+				if (!view?.file) return false;
+				if (!checking) view.presentFromCurrent();
+				return true;
+			},
+		});
+
 		this.addCommand({
 			id: "save-deck",
 			name: t("palette.save"),
@@ -164,7 +186,8 @@ export default class PptxStudioPlugin extends Plugin {
 	 * than leaving the window looking hung.
 	 */
 	async exportDeckPdf(loaded: LoadedDeck, file: TFile | null): Promise<void> {
-		const notice = new Notice(t("notice.rendering", { n: 0, total: loaded.deck.slides.length }), 0);
+		const total = printedSlides(loaded.deck).length;
+		const notice = new Notice(t("notice.rendering", { n: 0, total }), 0);
 		try {
 			const pdf = await deckToPdf(loaded.deck, loaded.pkg, this.settings.exportScale, (n, total) =>
 				notice.setMessage(t("notice.rendering", { n, total })),
@@ -181,7 +204,8 @@ export default class PptxStudioPlugin extends Plugin {
 	}
 
 	async printDeck(loaded: LoadedDeck): Promise<void> {
-		const notice = new Notice(t("notice.rendering", { n: 0, total: loaded.deck.slides.length }), 0);
+		const total = printedSlides(loaded.deck).length;
+		const notice = new Notice(t("notice.rendering", { n: 0, total }), 0);
 		try {
 			await printDeck(loaded.deck, loaded.pkg, this.settings.exportScale, (n, total) =>
 				notice.setMessage(t("notice.rendering", { n, total })),

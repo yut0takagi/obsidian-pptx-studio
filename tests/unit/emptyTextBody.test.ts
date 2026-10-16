@@ -92,10 +92,13 @@ function render(body: TextBody): HTMLElement[] {
 		index: 1,
 		name: "Slide 1",
 		partPath: "ppt/slides/slide1.xml",
+		slideId: 256,
 		background: null,
 		shapes: [shape(body)],
 		templateShapes: 0,
 		notes: "",
+		hidden: false,
+		transition: null,
 	};
 	const deck: Deck = { width: 960, height: 540, slides: [slide], title: "deck" };
 

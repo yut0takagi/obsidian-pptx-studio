@@ -11,6 +11,7 @@ import {
 } from "./shapes";
 import type { ParseContext } from "./style";
 import { textBodyToPlain } from "./text";
+import { parseSlideTransition } from "./transition";
 import type { Deck, Fill, Shape, Slide } from "./types";
 import { emuToPx } from "./types";
 import { attr, boolAttr, child, children, numAttr } from "./xml";
@@ -51,10 +52,11 @@ export function rebuildDeck(pkg: PptxPackage, fallbackTitle: string): Deck {
 		// p:sldId carries both a numeric id and an r:id; only the latter is a relationship.
 		const slidePath = pkg.relTarget(PRESENTATION, relIdOf(sldId));
 		if (!slidePath || !pkg.has(slidePath)) return;
+		const slideId = numAttr(sldId, "id");
 		try {
-			slides.push(buildSlide(pkg, slidePath, i + 1, defaultTextStyle, themeCache));
+			slides.push(buildSlide(pkg, slidePath, i + 1, slideId, defaultTextStyle, themeCache));
 		} catch (e) {
-			slides.push(errorSlide(i + 1, slidePath, e as Error));
+			slides.push(errorSlide(i + 1, slidePath, slideId, e as Error));
 		}
 	});
 
@@ -98,6 +100,7 @@ export function rebuildSlideAt(pkg: PptxPackage, deck: Deck, index: number): boo
 			pkg,
 			slide.partPath,
 			slide.index,
+			slide.slideId,
 			child(pres, "defaultTextStyle"),
 			new Map(),
 		);
@@ -111,6 +114,7 @@ function buildSlide(
 	pkg: PptxPackage,
 	slidePath: string,
 	index: number,
+	slideId: number | null,
 	defaultTextStyle: Element | null,
 	themeCache: Map<string, Theme>,
 ): Slide {
@@ -177,10 +181,14 @@ function buildSlide(
 		index,
 		name: attr(child(slideRoot, "cSld"), "name") ?? "",
 		partPath: slidePath,
+		slideId,
 		background,
 		shapes,
 		templateShapes,
 		notes: readNotes(pkg, slidePath, theme),
+		// A slide is shown unless it says otherwise.
+		hidden: boolAttr(slideRoot, "show") === false,
+		transition: parseSlideTransition(slideRoot),
 	};
 }
 
@@ -240,14 +248,17 @@ function readNotes(pkg: PptxPackage, slidePath: string, theme: Theme): string {
 	return lines.join("\n").trim();
 }
 
-function errorSlide(index: number, path: string, error: Error): Slide {
+function errorSlide(index: number, path: string, slideId: number | null, error: Error): Slide {
 	return {
 		index,
 		name: path,
 		partPath: path,
+		slideId,
 		background: { kind: "solid", color: "#ffffff" },
 		shapes: [],
 		templateShapes: 0,
 		notes: `Could not render this slide: ${error.message}`,
+		hidden: false,
+		transition: null,
 	};
 }

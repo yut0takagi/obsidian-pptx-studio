@@ -2,9 +2,10 @@ import { MarkdownRenderChild, type TFile } from "obsidian";
 import { t } from "../i18n";
 import { DeckViewer } from "../render/DeckViewer";
 import type PptxStudioPlugin from "../main";
+import { type SlideRef, parseSlideRef, resolveSlideRef } from "./slideRef";
 
 /**
- * Render `![[deck.pptx]]` and `![[deck.pptx#3]]` inside notes.
+ * Render `![[deck.pptx]]`, `![[deck.pptx#3]]` and `![[deck.pptx#id=257]]` inside notes.
  *
  * Obsidian only produces an `.internal-embed` span for extensions it knows
  * about, which is why the plugin registers "pptx" before this ever runs.
@@ -23,7 +24,7 @@ export function registerPptxEmbeds(plugin: PptxStudioPlugin): void {
 			span.empty();
 			span.addClass("pptx-embed");
 			span.removeClass("internal-embed");
-			ctx.addChild(new PptxEmbed(span, plugin, file, parseSlideNumber(subpath)));
+			ctx.addChild(new PptxEmbed(span, plugin, file, parseSlideRef(subpath)));
 		}
 	});
 }
@@ -33,14 +34,6 @@ function splitSubpath(src: string): [string, string] {
 	return hash === -1 ? [src, ""] : [src.slice(0, hash), src.slice(hash + 1)];
 }
 
-/** `#3` and `#slide=3` both pin the embed to slide 3. */
-function parseSlideNumber(subpath: string): number | undefined {
-	const match = /^(?:slide=?)?(\d+)$/i.exec(subpath.trim());
-	if (!match) return undefined;
-	const n = Number(match[1]);
-	return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
 class PptxEmbed extends MarkdownRenderChild {
 	private viewer: DeckViewer | null = null;
 
@@ -48,7 +41,7 @@ class PptxEmbed extends MarkdownRenderChild {
 		containerEl: HTMLElement,
 		private readonly plugin: PptxStudioPlugin,
 		private readonly file: TFile,
-		private readonly slideNumber: number | undefined,
+		private readonly slideRef: SlideRef | undefined,
 	) {
 		super(containerEl);
 	}
@@ -70,17 +63,28 @@ class PptxEmbed extends MarkdownRenderChild {
 			loading.remove();
 			if (!this.containerEl.isConnected) return;
 
+			// An id names one slide; showing some other slide in its place would
+			// look like it worked, so a missing one says so instead.
+			const slideNumber = resolveSlideRef(loaded.deck, this.slideRef);
+			if (slideNumber === null) {
+				this.containerEl.createDiv({
+					cls: "pptx-message pptx-error",
+					text: t("embed.slideMissing", { name: this.file.name }),
+				});
+				this.containerEl.addEventListener("dblclick", this.openInTab);
+				return;
+			}
+
 			this.viewer = new DeckViewer(this.containerEl, {
 				deck: loaded.deck,
 				pkg: loaded.pkg,
 				compact: true,
 				// A one-slide embed needs no chrome; a whole deck needs page controls.
-				chrome:
-					settings.embedControls && this.slideNumber === undefined ? "toolbar" : "none",
+				chrome: settings.embedControls && slideNumber === undefined ? "toolbar" : "none",
 				showThumbnails: false,
 				showNotes: false,
 				fitMode: "page",
-				pinnedSlide: this.slideNumber,
+				pinnedSlide: slideNumber,
 			});
 
 			this.containerEl.addEventListener("dblclick", this.openInTab);
