@@ -23,6 +23,7 @@ const EN = {
 	"view.noNotes": "This slide has no speaker notes.",
 	"view.notesTitle": "Speaker notes",
 	"view.slideLabel": "Slide {n}",
+	"view.hiddenSlideLabel": "Slide {n} (hidden)",
 
 	"nav.previous": "Previous slide (↑)",
 	"nav.next": "Next slide (↓)",
@@ -284,6 +285,7 @@ const EN = {
 
 	// --- notices
 	"notice.noChanges": "No changes to save.",
+	"notice.allHidden": "Every slide in this deck is hidden, so there is nothing to show.",
 	"notice.saved": "Saved.",
 	"notice.savedBackup": "Saved. A backup of the original is at {path}.",
 	"notice.saveFailed": "Could not save: {message}",
@@ -377,6 +379,7 @@ const JA: Record<StringKey, string> = {
 	"view.noNotes": "このスライドにノートはありません。",
 	"view.notesTitle": "ノート",
 	"view.slideLabel": "スライド {n}",
+	"view.hiddenSlideLabel": "スライド {n}（非表示）",
 
 	"nav.previous": "前のスライド (↑)",
 	"nav.next": "次のスライド (↓)",
@@ -633,6 +636,7 @@ const JA: Record<StringKey, string> = {
 	"find.skipped": "{n} 件はそのままです（改行やフィールドをまたいでいます）",
 
 	"notice.noChanges": "保存する変更はありません。",
+	"notice.allHidden": "このデッキのスライドはすべて非表示なので、表示するものがありません。",
 	"notice.saved": "保存しました。",
 	"notice.savedBackup": "保存しました。元のファイルのバックアップは {path} です。",
 	"notice.saveFailed": "保存できませんでした: {message}",

@@ -5,12 +5,24 @@
  * same however it leaves the plugin, and a slide that renders in the viewer is
  * a slide that prints.
  */
+import { t } from "../i18n";
 import type { PptxPackage } from "../pptx/package";
-import type { Deck } from "../pptx/types";
+import type { Deck, Slide } from "../pptx/types";
 import { rasteriseSlide } from "./png";
 import { buildPdf, pointSize, rgbFromRgba, type PdfPage } from "./pdf";
 
-/** Rasterise every slide, reporting progress so a long deck can say so. */
+/**
+ * The slides that become pages. A hidden slide is one the author kept out of
+ * the show, and a PDF or a printout is the show handed over on paper, so it is
+ * kept out of those too.
+ */
+export function printedSlides(deck: Deck): Slide[] {
+	const slides = deck.slides.filter((slide) => !slide.hidden);
+	if (slides.length === 0) throw new Error(t("notice.allHidden"));
+	return slides;
+}
+
+/** Rasterise every printed slide, reporting progress so a long deck can say so. */
 async function pages(
 	deck: Deck,
 	pkg: PptxPackage,
@@ -19,7 +31,8 @@ async function pages(
 ): Promise<PdfPage[]> {
 	const out: PdfPage[] = [];
 	const size = pointSize(deck.width, deck.height);
-	for (const [index, slide] of deck.slides.entries()) {
+	const slides = printedSlides(deck);
+	for (const [index, slide] of slides.entries()) {
 		const canvas = await rasteriseSlide(deck, slide, pkg, scale);
 		const context = canvas.getContext("2d");
 		if (!context) throw new Error("Could not get a 2D canvas context.");
@@ -31,7 +44,7 @@ async function pages(
 			pointHeight: size.height,
 			rgb: rgbFromRgba(pixels.data),
 		});
-		onProgress?.(index + 1, deck.slides.length);
+		onProgress?.(index + 1, slides.length);
 	}
 	return out;
 }
@@ -59,10 +72,11 @@ export async function printDeck(
 	onProgress?: (done: number, total: number) => void,
 ): Promise<void> {
 	const images: string[] = [];
-	for (const [index, slide] of deck.slides.entries()) {
+	const slides = printedSlides(deck);
+	for (const [index, slide] of slides.entries()) {
 		const canvas = await rasteriseSlide(deck, slide, pkg, scale);
 		images.push(canvas.toDataURL("image/png"));
-		onProgress?.(index + 1, deck.slides.length);
+		onProgress?.(index + 1, slides.length);
 	}
 
 	const size = pointSize(deck.width, deck.height);

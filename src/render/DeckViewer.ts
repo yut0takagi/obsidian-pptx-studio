@@ -261,8 +261,17 @@ export class DeckViewer {
 		this.deck.slides.forEach((slide, i) => {
 			const item = rail.createDiv({ cls: "pptx-thumb" });
 			item.dataset.index = String(i);
-			item.setAttribute("aria-label", t("view.slideLabel", { n: slide.index }));
-			item.createSpan({ cls: "pptx-thumb-number", text: String(slide.index) });
+			item.setAttribute(
+				"aria-label",
+				t(slide.hidden ? "view.hiddenSlideLabel" : "view.slideLabel", { n: slide.index }),
+			);
+			const label = item.createDiv({ cls: "pptx-thumb-label" });
+			label.createSpan({ cls: "pptx-thumb-number", text: String(slide.index) });
+			// A hidden slide is dimmed, which is easy to miss, so it also gets a mark.
+			if (slide.hidden) {
+				item.addClass("is-hidden-slide");
+				setIcon(label.createSpan({ cls: "pptx-thumb-hidden" }), "eye-off");
+			}
 			item.createDiv({ cls: "pptx-thumb-frame" });
 			item.addEventListener("click", () => this.go(i));
 			item.addEventListener("contextmenu", (event) => {

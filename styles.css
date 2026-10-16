@@ -130,6 +130,13 @@
 	outline-offset: 1px;
 }
 
+.pptx-thumb-label {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 2px;
+}
+
 .pptx-thumb-number {
 	font-size: var(--font-ui-smaller);
 	color: var(--text-faint);
@@ -137,6 +144,25 @@
 	min-width: 1.6em;
 	text-align: right;
 	padding-top: 2px;
+}
+
+/* A hidden slide: struck-through number, a mark under it, a faded picture. */
+.pptx-thumb.is-hidden-slide .pptx-thumb-number {
+	text-decoration: line-through;
+}
+
+.pptx-thumb-hidden {
+	display: flex;
+	color: var(--text-faint);
+}
+
+.pptx-thumb-hidden svg {
+	width: var(--icon-xs);
+	height: var(--icon-xs);
+}
+
+.pptx-thumb.is-hidden-slide .pptx-thumb-frame {
+	opacity: 0.45;
 }
 
 .pptx-thumb-frame {
