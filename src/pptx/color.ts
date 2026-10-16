@@ -1,3 +1,4 @@
+import { own } from "./lookup";
 import { attr, child, children, numAttr } from "./xml";
 
 export interface Theme {
@@ -162,13 +163,13 @@ function literalColor(el: Element | null | undefined, ctx?: ColorContext): strin
 			if (!v) return null;
 			if (v === "phClr") return ctx?.phClr ?? null;
 			const theme = ctx?.theme ?? DEFAULT_THEME;
-			const slot = theme.clrMap[v] ?? v;
+			const slot = own(theme.clrMap, v) ?? v;
 			// "bg1"/"tx1" map through clrMap; dk1/lt1 also answer to "dk1"/"lt1".
-			return theme.scheme[slot] ?? theme.scheme[v] ?? null;
+			return own(theme.scheme, slot) ?? own(theme.scheme, v) ?? null;
 		}
 		case "prstClr": {
 			const v = attr(el, "val");
-			return v ? (PRESET_COLORS[v] ?? null) : null;
+			return own(PRESET_COLORS, v) ?? null;
 		}
 		case "scrgbClr": {
 			const r = numAttr(el, "r") ?? 0;

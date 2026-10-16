@@ -1,3 +1,4 @@
+import { own } from "./lookup";
 import { attr, boolAttr, child, numAttr } from "./xml";
 
 /**
@@ -110,7 +111,7 @@ function effectElement(transition: Element, known: boolean): Element | null {
 		// Sounds and extension lists sit alongside the effect.
 		if (n.localName === "sndAc" || n.localName === "extLst") continue;
 		if (!known) return n;
-		if (n.namespaceURI === P_NS && (EFFECT_BY_ELEMENT[n.localName] || PLAIN_ELEMENTS.has(n.localName))) {
+		if (n.namespaceURI === P_NS && (own(EFFECT_BY_ELEMENT, n.localName) || PLAIN_ELEMENTS.has(n.localName))) {
 			return n;
 		}
 	}
@@ -121,11 +122,11 @@ function readTransition(transition: Element, timingFrom: Element | null): SlideT
 	const effectEl = effectElement(transition, false);
 	const name = effectEl?.localName ?? null;
 	const effect: TransitionEffect =
-		name === null ? "cut" : (EFFECT_BY_ELEMENT[name] ?? "fade");
+		name === null ? "cut" : (own(EFFECT_BY_ELEMENT, name) ?? "fade");
 
 	const timing = timingFrom ?? transition;
 	const explicit = numAttr(timing, "dur");
-	const named = SPEED_MS[attr(timing, "spd") ?? attr(transition, "spd") ?? "med"] ?? SPEED_MS.med;
+	const named = own(SPEED_MS, attr(timing, "spd") ?? attr(transition, "spd")) ?? SPEED_MS.med;
 	const duration = effect === "cut" ? 0 : Math.max(0, explicit ?? named);
 
 	let direction: string | null = null;

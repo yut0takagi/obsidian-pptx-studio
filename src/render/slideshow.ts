@@ -1,3 +1,4 @@
+import { own } from "../pptx/lookup";
 import type { SlideTransition } from "../pptx/transition";
 import type { Deck } from "../pptx/types";
 
@@ -63,7 +64,7 @@ export function presenterAction(event: {
 	metaKey?: boolean;
 }): PresenterAction | null {
 	if (event.altKey || event.ctrlKey || event.metaKey) return null;
-	return ACTION_BY_KEY[event.key] ?? null;
+	return own(ACTION_BY_KEY, event.key) ?? null;
 }
 
 export interface TransitionPlan {
@@ -116,7 +117,7 @@ export function transitionPlan(
 		outgoingOnTop: false,
 		...patch,
 	});
-	const [dx, dy] = TRAVEL[transition.direction ?? "l"] ?? TRAVEL.l;
+	const [dx, dy] = own(TRAVEL, transition.direction) ?? TRAVEL.l;
 
 	switch (transition.effect) {
 		case "push":

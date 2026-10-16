@@ -2,6 +2,7 @@ import { resolveFillColor } from "./color";
 import type { PptxPackage } from "./package";
 import type { ParseContext } from "./style";
 import { colorContext } from "./style";
+import { own } from "./lookup";
 import { attr, child, children, numAttr } from "./xml";
 
 /**
@@ -124,7 +125,7 @@ export function parseChartPart(
 	// chart is just more than one of them.
 	const plots: { el: Element; kind: ChartKind }[] = [];
 	for (let n = plotArea.firstElementChild; n; n = n.nextElementSibling) {
-		const mapped = KIND_BY_ELEMENT[n.localName];
+		const mapped = own(KIND_BY_ELEMENT, n.localName);
 		if (!mapped) continue;
 		// A bar chart is drawn horizontally or vertically depending on c:barDir.
 		const kind = mapped === "column" && attr(child(n, "barDir"), "val") === "bar" ? "bar" : mapped;
