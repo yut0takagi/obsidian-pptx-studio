@@ -31,6 +31,12 @@ const EN = {
 	"zoom.fit": "Fit to pane (0)",
 	"notes.toggle": "Toggle speaker notes (N)",
 
+	// --- presenting
+	"present.previous": "Previous slide",
+	"present.next": "Next slide",
+	"present.exit": "End the slide show (Esc)",
+	"present.end": "End of slide show. Click to exit.",
+
 	// --- ribbon tabs and groups
 	"tab.home": "Home",
 	"tab.insert": "Insert",
@@ -378,6 +384,11 @@ const JA: Record<StringKey, string> = {
 	"zoom.in": "拡大 (+)",
 	"zoom.fit": "ウィンドウに合わせる (0)",
 	"notes.toggle": "ノートの表示切替 (N)",
+
+	"present.previous": "前のスライド",
+	"present.next": "次のスライド",
+	"present.exit": "スライドショーを終了 (Esc)",
+	"present.end": "スライドショーの最後です。クリックすると終了します。",
 
 	"tab.home": "ホーム",
 	"tab.insert": "挿入",

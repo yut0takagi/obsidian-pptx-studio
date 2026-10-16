@@ -96,6 +96,8 @@ function render(body: TextBody): HTMLElement[] {
 		shapes: [shape(body)],
 		templateShapes: 0,
 		notes: "",
+		hidden: false,
+		transition: null,
 	};
 	const deck: Deck = { width: 960, height: 540, slides: [slide], title: "deck" };
 

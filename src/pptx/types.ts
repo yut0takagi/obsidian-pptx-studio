@@ -1,4 +1,5 @@
 import type { ChartModel } from "./chart";
+import type { SlideTransition } from "./transition";
 
 /** The renderer-facing model. Parsing turns OOXML into these; rendering only reads these. */
 
@@ -22,6 +23,10 @@ export interface Slide {
 	/** How many leading entries of `shapes` came from the layout or master. */
 	templateShapes: number;
 	notes: string;
+	/** p:sld@show="0": kept in the deck, left out of the show and of printed pages. */
+	hidden: boolean;
+	/** How the slide enters when presented, and whether it advances by itself. */
+	transition: SlideTransition | null;
 }
 
 export type Fill =

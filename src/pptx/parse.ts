@@ -11,6 +11,7 @@ import {
 } from "./shapes";
 import type { ParseContext } from "./style";
 import { textBodyToPlain } from "./text";
+import { parseSlideTransition } from "./transition";
 import type { Deck, Fill, Shape, Slide } from "./types";
 import { emuToPx } from "./types";
 import { attr, boolAttr, child, children, numAttr } from "./xml";
@@ -181,6 +182,9 @@ function buildSlide(
 		shapes,
 		templateShapes,
 		notes: readNotes(pkg, slidePath, theme),
+		// A slide is shown unless it says otherwise.
+		hidden: boolAttr(slideRoot, "show") === false,
+		transition: parseSlideTransition(slideRoot),
 	};
 }
 
@@ -249,5 +253,7 @@ function errorSlide(index: number, path: string, error: Error): Slide {
 		shapes: [],
 		templateShapes: 0,
 		notes: `Could not render this slide: ${error.message}`,
+		hidden: false,
+		transition: null,
 	};
 }

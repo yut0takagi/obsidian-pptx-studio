@@ -1143,6 +1143,104 @@
 	max-width: 40%;
 }
 
+/* ------------------------------------------------------------ presenting */
+
+/*
+ * The slide show covers everything, fullscreen or not: the same fixed box is
+ * the fullscreen element when the platform grants it and a window-sized cover
+ * when it does not.
+ */
+.pptx-presenter {
+	position: fixed;
+	inset: 0;
+	z-index: var(--layer-modal);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	background: #000;
+	outline: none;
+	cursor: none;
+}
+
+.pptx-presenter.is-showing-controls {
+	cursor: default;
+}
+
+.pptx-presenter-frame {
+	position: relative;
+	flex: none;
+	overflow: hidden;
+}
+
+.pptx-presenter-layer {
+	position: absolute;
+	inset: 0;
+	transform-origin: center;
+}
+
+.pptx-presenter-layer > .pptx-slide {
+	position: absolute;
+	top: 0;
+	left: 0;
+}
+
+.pptx-presenter-end {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #000;
+}
+
+.pptx-presenter-end-text {
+	color: rgba(255, 255, 255, 0.7);
+	font-size: var(--font-ui-medium);
+}
+
+.pptx-presenter-controls {
+	position: absolute;
+	left: var(--size-4-4);
+	bottom: var(--size-4-4);
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	padding: var(--size-2-1) var(--size-4-2);
+	border-radius: var(--radius-m);
+	background: rgba(0, 0, 0, 0.6);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 160ms ease-out;
+}
+
+.pptx-presenter.is-showing-controls .pptx-presenter-controls {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* Without a pointer to move there is no other way to find them. */
+@media (hover: none) {
+	.pptx-presenter-controls {
+		opacity: 1;
+		pointer-events: auto;
+	}
+}
+
+.pptx-presenter-btn {
+	color: rgba(255, 255, 255, 0.85);
+}
+
+.pptx-presenter-btn:hover {
+	color: #fff;
+}
+
+.pptx-presenter-counter {
+	min-width: 4em;
+	text-align: center;
+	color: rgba(255, 255, 255, 0.75);
+	font-size: var(--font-ui-small);
+	font-variant-numeric: tabular-nums;
+}
+
 /* ---------------------------------------------------------------- motion */
 
 /*
@@ -1238,6 +1336,7 @@
 	}
 
 	.pptx-context-toolbar,
+	.pptx-presenter-controls,
 	.pptx-ribbon-body,
 	.pptx-thumb,
 	.pptx-ribbon-btn,
