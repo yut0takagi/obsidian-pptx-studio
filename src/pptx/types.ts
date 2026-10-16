@@ -17,6 +17,11 @@ export interface Slide {
 	name: string;
 	/** Package part path, e.g. "ppt/slides/slide1.xml". */
 	partPath: string;
+	/**
+	 * p:sldId@id: the slide's identity within the deck, which stays with it when
+	 * slides are reordered. Null only for a slide that could not be read.
+	 */
+	slideId: number | null;
 	background: Fill | null;
 	/** Layout/master decoration first, then the slide's own shapes. */
 	shapes: Shape[];

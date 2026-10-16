@@ -25,6 +25,7 @@ function deckOf(hidden: boolean[]): Deck {
 			index: i + 1,
 			name: "",
 			partPath: `ppt/slides/slide${i + 1}.xml`,
+			slideId: 256 + i,
 			background: { kind: "solid", color: "#ffffff" },
 			shapes: [],
 			templateShapes: 0,

@@ -306,6 +306,7 @@ const EN = {
 	// --- embeds and rendering
 	"embed.loading": "Loading {name}…",
 	"embed.failed": "Could not render {name}: {message}",
+	"embed.slideMissing": "This slide is no longer in {name}. It may have been deleted, or the link is from another deck.",
 	"render.unsupportedImage": "Unsupported image format",
 
 	// --- plugin commands
@@ -656,6 +657,7 @@ const JA: Record<StringKey, string> = {
 
 	"embed.loading": "{name} を読み込み中…",
 	"embed.failed": "{name} を表示できませんでした: {message}",
+	"embed.slideMissing": "{name} にこのスライドがありません。削除されたか、別のデッキのリンクです。",
 	"render.unsupportedImage": "未対応の画像形式です",
 
 	"palette.save": "デッキを保存",
