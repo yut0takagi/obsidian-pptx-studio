@@ -1,0 +1,58 @@
+name: Update download stats
+
+on:
+  schedule:
+    # Obsidian commits its stats file around 00:25 UTC; 03:00 leaves room for delayed runs.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+# Committing the refreshed SVGs needs write access.
+permissions:
+  contents: write
+
+concurrency:
+  group: obsidian-stats
+  cancel-in-progress: false
+
+env:
+  PLUGIN_ID: pptx-studio
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      # The stats action fails when none of its ids are in Obsidian's stats file,
+      # so wait quietly until the plugin has been accepted into the community list.
+      - name: Check the plugin is listed
+        id: listed
+        run: |
+          if curl -fsSL https://raw.githubusercontent.com/obsidianmd/obsidian-releases/HEAD/community-plugin-stats.json \
+              | jq -e --arg id "$PLUGIN_ID" 'has($id)' > /dev/null; then
+            echo "listed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$PLUGIN_ID is not in the community plugin list yet; skipping."
+          fi
+
+      - if: steps.listed.outputs.listed == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - if: steps.listed.outputs.listed == 'true'
+        name: Generate badge and chart
+        uses: yut0takagi/obsidian-plugin-stats-badge@974b63c3014725906090fb606b2de2c69fe873a9 # v1
+        with:
+          plugin-id: ${{ env.PLUGIN_ID }}
+          chart-title: PPTX Studio downloads
+
+      - if: steps.listed.outputs.listed == 'true'
+        name: Commit if anything changed
+        run: |
+          if [ -z "$(git status --porcelain .github/stats)" ]; then
+            echo "No change in download stats."
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/stats
+          # [skip ci] keeps the daily data commit from starting other workflows.
+          git commit -m 'chore: update Obsidian download stats [skip ci]'
+          git push

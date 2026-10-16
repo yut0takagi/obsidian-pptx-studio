@@ -1,5 +1,9 @@
 # PPTX Studio for Obsidian
 
+![Downloads](https://raw.githubusercontent.com/yut0takagi/obsidian-pptx-studio/main/.github/stats/badge.svg)
+
+![Download history](https://raw.githubusercontent.com/yut0takagi/obsidian-pptx-studio/main/.github/stats/downloads.svg)
+
 View, edit and save PowerPoint decks without leaving Obsidian.
 
 **[yut0takagi.github.io/obsidian-pptx-studio](https://yut0takagi.github.io/obsidian-pptx-studio/)** —
