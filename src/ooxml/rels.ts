@@ -1,4 +1,4 @@
-import type { PptxPackage } from "../pptx/package";
+import type { PptxPackage, Relationship } from "../pptx/package";
 import { attr, parseXml } from "../pptx/xml";
 
 export const REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
@@ -13,9 +13,8 @@ export function relsPathFor(partPath: string): string {
 	return `${dir ? `${dir}/` : ""}_rels/${base}.rels`;
 }
 
-const EMPTY_RELS =
-	'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
-	`<Relationships xmlns="${PACKAGE_REL_NS}"/>`;
+const DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n';
+const EMPTY_RELS = `${DECL}<Relationships xmlns="${PACKAGE_REL_NS}"/>`;
 
 function relsDocument(pkg: PptxPackage, partPath: string): { path: string; doc: Document } {
 	const path = relsPathFor(partPath);
@@ -97,6 +96,52 @@ export function removeRelationship(pkg: PptxPackage, partPath: string, id: strin
 			return;
 		}
 	}
+}
+
+/** Point an existing relationship at a different part, keeping its id. */
+export function retargetRelationship(
+	pkg: PptxPackage,
+	partPath: string,
+	id: string,
+	target: string,
+): boolean {
+	const path = relsPathFor(partPath);
+	const doc = pkg.xml(path);
+	if (!doc?.documentElement) return false;
+	for (const el of Array.from(doc.documentElement.getElementsByTagName("*"))) {
+		if (el.localName !== "Relationship" || attr(el, "Id") !== id) continue;
+		el.setAttribute("Target", relativeTarget(partPath, target));
+		pkg.markDirty(path);
+		pkg.invalidateRels();
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Give `toPart` the relationships `fromPart` has, with the same ids and types,
+ * each target re-expressed relative to where `toPart` lives. `retarget` can send
+ * one somewhere else — a copied notes slide pointing at the copied slide rather
+ * than at the original.
+ */
+export function copyRelationships(
+	pkg: PptxPackage,
+	fromPart: string,
+	toPart: string,
+	retarget: (rel: Relationship) => string = (rel) => rel.target,
+): void {
+	const doc = parseXml(emptyRelsBytes());
+	const root = doc.documentElement;
+	for (const rel of pkg.rels(fromPart).values()) {
+		const el = doc.createElementNS(PACKAGE_REL_NS, "Relationship");
+		el.setAttribute("Id", rel.id);
+		el.setAttribute("Type", rel.type);
+		el.setAttribute("Target", rel.external ? rel.target : relativeTarget(toPart, retarget(rel)));
+		if (rel.external) el.setAttribute("TargetMode", "External");
+		root.appendChild(el);
+	}
+	const body = new XMLSerializer().serializeToString(doc).replace(/^\s*<\?xml[^?]*\?>\s*/, "");
+	pkg.replacePart(relsPathFor(toPart), new TextEncoder().encode(DECL + body));
 }
 
 /** The rels parts that must be snapshotted when relationships may change. */

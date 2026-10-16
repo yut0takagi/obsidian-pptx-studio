@@ -1,7 +1,14 @@
 import type { PptxPackage } from "../pptx/package";
 import { attr, child, children } from "../pptx/xml";
 import { CONTENT_TYPES_PART, CT, ensureOverride, removeOverride } from "./contentTypes";
-import { REL_BASE, ensureRelationship, relsPathFor, removeRelationship } from "./rels";
+import {
+	REL_BASE,
+	copyRelationships,
+	ensureRelationship,
+	relsPathFor,
+	removeRelationship,
+	retargetRelationship,
+} from "./rels";
 import { P_NS, nonVisualProps, p as pEl, shapeElements, spTreeOf } from "./tree";
 
 const PRESENTATION = "ppt/presentation.xml";
@@ -41,13 +48,18 @@ function relationshipId(sldId: Element): string | null {
 
 /** The part path the next created slide will take, known before it is created. */
 export function nextSlidePath(pkg: PptxPackage): string {
-	return `ppt/slides/slide${nextSlideNumber(pkg)}.xml`;
+	return `ppt/slides/slide${nextPartNumber(pkg, /^ppt\/slides\/slide(\d+)\.xml$/)}.xml`;
 }
 
-function nextSlideNumber(pkg: PptxPackage): number {
+/** The same for a notes slide, so a duplicate's new notes can be snapshotted for undo. */
+export function nextNotesSlidePath(pkg: PptxPackage): string {
+	return `ppt/notesSlides/notesSlide${nextPartNumber(pkg, /^ppt\/notesSlides\/notesSlide(\d+)\.xml$/)}.xml`;
+}
+
+function nextPartNumber(pkg: PptxPackage, pattern: RegExp): number {
 	let max = 0;
 	for (const path of pkg.partPaths()) {
-		const match = /^ppt\/slides\/slide(\d+)\.xml$/.exec(path);
+		const match = pattern.exec(path);
 		if (match) max = Math.max(max, Number(match[1]));
 	}
 	return max + 1;
@@ -134,12 +146,19 @@ export function addSlide(
 	return slidePath;
 }
 
-/** Copy a slide, including its relationships, and insert it after the original. */
+/**
+ * Copy a slide, including its relationships and its speaker notes, and insert
+ * it after the original.
+ *
+ * `notesPath` is where the copy's notes go when the original has any; the
+ * caller passes it when it needs to snapshot the part before it exists.
+ */
 export function duplicateSlide(
 	pkg: PptxPackage,
 	sourcePath: string,
 	position: number,
 	slidePath = nextSlidePath(pkg),
+	notesPath = nextNotesSlidePath(pkg),
 ): string {
 	const bytes = pkg.serializePart(sourcePath);
 	if (!bytes) throw new Error(`Slide not found: ${sourcePath}`);
@@ -150,14 +169,36 @@ export function duplicateSlide(
 	const sourceRels = pkg.serializePart(relsPathFor(sourcePath));
 	if (sourceRels) pkg.replacePart(relsPathFor(slidePath), sourceRels);
 
-	// A notes slide belongs to exactly one slide, so drop the copy's link to it
-	// rather than leaving two slides claiming the same notes.
 	for (const [id, rel] of pkg.rels(slidePath)) {
-		if (rel.kind === "notesSlide") removeRelationship(pkg, slidePath, id);
+		if (rel.kind !== "notesSlide") continue;
+		if (pkg.has(rel.target)) copyNotes(pkg, rel.target, notesPath, slidePath, id);
+		else removeRelationship(pkg, slidePath, id);
 	}
 
 	registerSlide(pkg, slidePath, position);
 	return slidePath;
+}
+
+/**
+ * A notes slide belongs to exactly one slide — its own relationships point back
+ * at it — so a copied slide cannot share the original's. It gets a copy of its
+ * own, related back to the copied slide, registered as a notes slide.
+ */
+function copyNotes(
+	pkg: PptxPackage,
+	sourceNotes: string,
+	notesPath: string,
+	slidePath: string,
+	relId: string,
+): void {
+	const bytes = pkg.serializePart(sourceNotes);
+	if (!bytes) return;
+	pkg.addPart(notesPath, bytes);
+	copyRelationships(pkg, sourceNotes, notesPath, (rel) =>
+		rel.kind === "slide" ? slidePath : rel.target,
+	);
+	retargetRelationship(pkg, slidePath, relId, notesPath);
+	ensureOverride(pkg, notesPath, CT.notesSlide);
 }
 
 /** Remove a slide and everything that existed only to serve it. */
