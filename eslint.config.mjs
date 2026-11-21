@@ -15,4 +15,14 @@ export default defineConfig([
 			parserOptions: { projectService: true },
 		},
 	},
+	/*
+	 * The slide renderer styles everything inline, and it has to. PNG and PDF
+	 * export serialise the rendered slide into an SVG <foreignObject>, where
+	 * styles.css does not reach, so the fixed values this rule would move into
+	 * classes are the ones an exported slide needs for its layout.
+	 */
+	{
+		files: ["src/render/renderSlide.ts", "src/render/renderChart.ts"],
+		rules: { "obsidianmd/no-static-styles-assignment": "off" },
+	},
 ]);

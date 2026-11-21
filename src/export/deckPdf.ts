@@ -85,15 +85,7 @@ export async function printDeck(
 	}
 
 	const size = pointSize(deck.width, deck.height);
-	const frame = document.body.createEl("iframe");
-	frame.setCssStyles({
-		position: "fixed",
-		right: "0",
-		bottom: "0",
-		width: "0",
-		height: "0",
-		border: "0",
-	});
+	const frame = document.body.createEl("iframe", { cls: "pptx-print-frame" });
 
 	const doc = frame.contentDocument;
 	const win = frame.contentWindow;

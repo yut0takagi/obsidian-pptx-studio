@@ -414,7 +414,7 @@ export class DeckViewer {
 		frame.setCssStyles({ height: `${this.deck.height * scale}px` });
 
 		const el = renderSlide(this.deck, slide);
-		el.setCssStyles({ transform: `scale(${scale})`, pointerEvents: "none" });
+		el.setCssStyles({ transform: `scale(${scale})` });
 		frame.appendChild(el);
 	}
 

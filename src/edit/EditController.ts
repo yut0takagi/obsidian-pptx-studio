@@ -114,8 +114,6 @@ export class EditController {
 		box.contentEditable = "true";
 		box.spellcheck = false;
 		box.addClass("is-editing");
-		// Text can overflow its shape while typing; let it be seen rather than clipped.
-		box.setCssStyles({ overflow: "visible" });
 
 		box.addEventListener("keydown", this.onKeyDown);
 		box.addEventListener("focusout", this.onFocusOut);
@@ -217,7 +215,6 @@ export class EditController {
 		this.caret.stop();
 		box.contentEditable = "false";
 		box.removeClass("is-editing");
-		box.setCssStyles({ overflow: "" });
 		box.removeEventListener("keydown", this.onKeyDown);
 		box.removeEventListener("focusout", this.onFocusOut);
 		box.removeEventListener("compositionstart", this.onCompositionStart);

@@ -19,7 +19,7 @@ export class CaretPainter {
 	start(box: HTMLElement): void {
 		this.stop();
 		this.box = box;
-		box.setCssStyles({ caretColor: "transparent" });
+		box.addClass("pptx-caret-host");
 
 		const el = createDiv();
 		el.className = "pptx-caret";
@@ -41,7 +41,7 @@ export class CaretPainter {
 		window.removeEventListener("scroll", this.schedule, true);
 		window.removeEventListener("resize", this.schedule);
 		this.box?.removeEventListener("input", this.schedule);
-		if (this.box) this.box.setCssStyles({ caretColor: "" });
+		this.box?.removeClass("pptx-caret-host");
 		this.box = null;
 		this.el?.remove();
 		this.el = null;
@@ -61,20 +61,20 @@ export class CaretPainter {
 		if (!el || !box) return;
 		const rect = this.caretRect(box);
 		if (!rect) {
-			el.setCssStyles({ display: "none" });
+			el.addClass("is-hidden");
 			return;
 		}
+		el.removeClass("is-hidden");
 		el.setCssStyles({
-			display: "block",
 			left: `${rect.left}px`,
 			top: `${rect.top}px`,
 			height: `${rect.height}px`,
 		});
 		// Restart the blink, so the caret is solid the instant it moves rather
 		// than invisible for the rest of the off half of the cycle.
-		el.setCssStyles({ animation: "none" });
+		el.addClass("is-restarting");
 		void el.offsetWidth;
-		el.setCssStyles({ animation: "" });
+		el.removeClass("is-restarting");
 	}
 
 	private caretRect(box: HTMLElement): { left: number; top: number; height: number } | null {

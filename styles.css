@@ -178,6 +178,11 @@
 	transform-origin: top left;
 }
 
+/* A thumbnail is a picture of the slide; clicks belong to the rail item. */
+.pptx-thumb-frame > .pptx-slide {
+	pointer-events: none;
+}
+
 /* --------------------------------------------------------------- stage */
 
 .pptx-stage {
@@ -306,8 +311,35 @@
 	}
 }
 
+/* Where there is no caret to draw, such as over a highlighted range. */
+.pptx-caret.is-hidden {
+	display: none;
+}
+
+/* Taken away for a moment so the blink starts over when the caret moves. */
+.pptx-caret.is-restarting {
+	animation: none;
+}
+
+/* The box being typed in, whose own caret the painted one stands in for. */
+.pptx-caret-host {
+	caret-color: transparent;
+}
+
 .pptx-bullet {
 	cursor: default;
+}
+
+/* ------------------------------------------------------------- printing */
+
+/* The frame a deck is printed from: in the document, but taking up no room. */
+.pptx-print-frame {
+	position: fixed;
+	right: 0;
+	bottom: 0;
+	width: 0;
+	height: 0;
+	border: 0;
 }
 
 /* ------------------------------------------------------------- messages */
