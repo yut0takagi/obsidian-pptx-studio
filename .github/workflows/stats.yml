@@ -22,7 +22,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # The stats action fails when none of its ids are in Obsidian's stats file,
-      # so wait quietly until the plugin has been accepted into the community list.
+      # so wait quietly until the plugin shows up there. Being in the community
+      # directory is not enough: as of 2026-11 pptx-studio is listed on
+      # community.obsidian.md but not in this file. Until it is, the README leaves
+      # out the badge and chart, which would only be broken images. Once
+      # .github/stats/ exists, put them back under the README's title; the two
+      # lines are in e5004f0.
       - name: Check the plugin is listed
         id: listed
         run: |
