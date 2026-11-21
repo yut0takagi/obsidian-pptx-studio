@@ -210,6 +210,8 @@ function renderTextBody(body: TextBody): HTMLElement {
 		paddingRight: `${body.insets[2]}px`,
 		paddingBottom: `${body.insets[3]}px`,
 		boxSizing: "border-box",
+		// Text that runs past its shape stays in view, which is also what lets
+		// it be seen while it is being typed.
 		overflow: "visible",
 		whiteSpace: body.wrap ? "pre-wrap" : "pre",
 		wordBreak: "break-word",

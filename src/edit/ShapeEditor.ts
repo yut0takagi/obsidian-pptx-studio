@@ -634,7 +634,9 @@ export class ShapeEditor {
 			if (event.shiftKey) rotation = Math.round(rotation / ROTATE_SNAP) * ROTATE_SNAP;
 			rotation = ((rotation % 360) + 360) % 360;
 			drag.rotations.set(item.shape.id, rotation);
-			item.el.setCssStyles({ transform: `rotate(${rotation}deg)`, transformOrigin: "center center" });
+			// No origin is set: an element turns about its centre by default,
+			// which is the pivot PowerPoint rotates a shape around.
+			item.el.setCssStyles({ transform: `rotate(${rotation}deg)` });
 		}
 		this.overlay.previewRotation(drag.rotations.get(drag.items[0].shape.id) ?? 0);
 	}
